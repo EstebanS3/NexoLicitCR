@@ -1,15 +1,65 @@
-# NexoLicitCR
+<p align="center">
+  <img src="docs/assets/nexolicitcr-logo.png" alt="NexoLicitCR: conexión y automatización para PYMES" width="680">
+</p>
 
-Aplicación Python para registrar el catálogo de una empresa y consultar concursos de SICOP. Monolito FastAPI/Jinja2 con persistencia MongoDB Atlas. La comparación automática de compatibilidad y los avisos son la siguiente etapa; esta versión no certifica elegibilidad para participar.
+<h1 align="center">NexoLicitCR</h1>
+<p align="center"><strong>Automatizamos la búsqueda. Tu PYME construye el futuro.</strong></p>
+<p align="center">Catálogo empresarial · Concursos SICOP · Automatización progresiva</p>
 
-## Funcionalidad actual
+---
 
-- Administrador inicial, sesiones persistentes, protección CSRF y límite de intentos.
-- Crear, editar y desactivar productos/servicios con capacidades, cobertura, términos y exclusiones.
-- Ingesta manual de listado, detalle y líneas de SICOP; paginación y consultas acotadas por rubro.
-- Concursos actuales e historial de versiones por contenido; reimportación idempotente.
-- Pantallas de catálogo, búsqueda y detalle de concursos con condiciones textuales escapadas.
-- Redis no es requerido ni utilizado por esta entrega. No se han implementado cola durable, OCR, ranking ni adjudicaciones comparables.
+NexoLicitCR busca acercar las compras públicas de Costa Rica a las pequeñas y medianas empresas. Su objetivo es conectar lo que tu empresa ofrece con lo que las instituciones necesitan, reducir la revisión repetitiva de concursos y ayudarte a decidir cuáles merecen atención.
+
+**La base actual permite registrar tu catálogo e importar y consultar concursos de SICOP.** La comparación automática de compatibilidades y los avisos todavía están en desarrollo; no se determina automáticamente si una empresa cumple todos los requisitos para participar.
+
+## Pensado para tu empresa
+
+| Necesidad de la PYME | Cómo la aborda el proyecto |
+|---|---|
+| Explicar qué vende y qué puede hacer | Catálogo de productos y servicios, capacidades, cobertura y palabras clave. |
+| Consultar oportunidades en un solo lugar | Importación de concursos de bienes, obras y servicios, con detalle y líneas solicitadas. |
+| Identificar cambios en lo consultado | Versiones por contenido y registro de las corridas de importación. |
+| Reducir la búsqueda repetitiva | Base de ingesta bajo demanda; ejecución programada prevista en una etapa posterior. |
+| Priorizar oportunidades afines | Comparación con el catálogo y avisos previstos; aún no disponibles. |
+
+## Del catálogo a la oportunidad
+
+```mermaid
+flowchart LR
+    A[Catálogo de tu PYME] --> D[Comparación de compatibilidad]
+    B[Concursos SICOP] --> C[Importación y versiones]
+    C --> D
+    D --> E[Avisos de oportunidades]
+    E --> F[Revisión del expediente por tu empresa]
+    classDef actual fill:#e7f5ef,stroke:#007f63,color:#102c40;
+    classDef previsto fill:#f3f5f7,stroke:#64748b,color:#102c40,stroke-dasharray:5 5;
+    class A,B,C actual;
+    class D,E previsto;
+```
+
+Las cajas discontinuas representan funciones previstas. Una compatibilidad futura será una señal para revisar el expediente, no una garantía de admisibilidad ni de adjudicación.
+
+## Estado del producto
+
+| Disponible en esta base | Próximas etapas |
+|---|---|
+| Administrador único y sesiones persistentes | Ejecución programada y worker duradero |
+| Creación, edición y desactivación de ítems del catálogo | Descarga de anexos y extracción de texto/OCR |
+| Ingesta manual con paginación, fallos registrados y versiones | Comparación explicable entre catálogo y requisitos |
+| Búsqueda y detalle de concursos importados | Avisos y priorización de oportunidades |
+
+**Validaciones pendientes:** integración contra una base Atlas real, muestras de anexos y confirmación de la zona horaria de fechas SICOP sin offset.
+
+## Arquitectura
+
+Un **monolito modular Python**, ejecutable localmente bajo demanda o en un servidor:
+
+- **FastAPI + Jinja2:** aplicación web con HTML/CSS y autenticación.
+- **CLI compartida:** inicialización, creación del administrador e ingesta SICOP.
+- **MongoDB Atlas:** única persistencia para catálogo, sesiones, concursos y versiones.
+- **Redis opcional:** reservado para caché futura; no se requiere ni se utiliza actualmente.
+
+No requiere un segundo backend ni una base de datos local. La ejecución local sí necesita acceso a Internet para Atlas y SICOP.
 
 ## Instalación
 
@@ -82,3 +132,10 @@ La prueba crea índices y catálogo inicial si faltan; limpia únicamente los do
 El catálogo y las sesiones se guardan en Atlas. `.gitignore` excluye credenciales, entornos, logs, descargas, datos de ejecución y planificación local. Lockfile, ejemplos sanitizados y fixtures sí se versionan. Revisar manualmente metadatos de archivos y autoría de commits antes de publicar; la comprobación automática complementa esa revisión.
 
 No se han confirmado todos los requisitos necesarios para participar a partir de la API: varias condiciones remiten al pliego. Revisar el expediente original. La interpretación de fechas sin offset y las muestras de anexos digitales/escaneados siguen pendientes de validación integral. No confundir precios ofertados o presupuestados con adjudicaciones finales.
+
+
+## Identidad y licencia
+
+El símbolo conecta módulos para formar una **N** y una dirección de avance: representa a una PYME que transforma información dispersa en oportunidades mediante automatización. El azul profundo aporta solidez y el verde identifica conexión y crecimiento.
+
+Distribuido bajo la [licencia MIT](LICENSE).
