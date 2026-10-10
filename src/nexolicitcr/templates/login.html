@@ -1,0 +1,5 @@
+{% extends "base.html" %}{% block content %}
+<section class="narrow"><p class="eyebrow">Acceso a tu empresa</p><h1>Encontrá tu próxima oportunidad</h1><p>Organizá tu catálogo y consultá los concursos disponibles.</p>
+{% if error %}<p role="alert" class="notice">{{ error }}</p>{% endif %}
+<form action="/login" method="post" class="panel"><input type="hidden" name="csrf" value="{{ token }}"><label for="username">Usuario</label><input id="username" name="username" autocomplete="username" required maxlength="64"><label for="password">Contraseña</label><input id="password" name="password" type="password" autocomplete="current-password" required maxlength="256"><button class="primary">Ingresar</button></form></section>
+{% endblock %}

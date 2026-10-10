@@ -1,0 +1,75 @@
+# Sistema y editores
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Secretos y configuración local; conservar ejemplos
+.env
+.env.*
+!.env.example
+!.env.*.example
+/secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Python y entornos
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.python-version.local
+*.egg-info/
+.eggs/
+/build/
+/dist/
+
+# Cachés, cobertura y herramientas
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.prof
+
+# Artefactos de ejecución (usar estas carpetas en la aplicación)
+/var/
+/data/raw/
+/data/downloads/
+/data/ocr/
+/data/exports/
+/data/local/
+/logs/
+/tmp/
+/artifacts/
+/playwright-report/
+/test-results/
+*.log
+*.pid
+*.part
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+
+# Dependencias UI si se incorporan herramientas de build
+node_modules/
+*.tsbuildinfo
+
+# No ignorar lockfiles, migraciones, fixtures ni PDFs globalmente.
+# Fixtures pequeñas y sanitizadas: tests/fixtures/; resultados medidos: docs/benchmarks/.
+
+# Planificación privada local
+/.local-planning/

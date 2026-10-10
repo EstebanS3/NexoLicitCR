@@ -1,0 +1,3 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NexoLicitCR</title><link rel="stylesheet" href="/static/app.css"></head>
+<body><a class="skip" href="#content">Saltar al contenido</a><header><a href="/" class="brand">NexoLicitCR</a><nav aria-label="Principal">{% if csrf %}<a href="/catalog">Mi catálogo</a><a href="/tenders">Concursos</a><form action="/logout" method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><button>Salir</button></form>{% endif %}</nav></header><main id="content">{% block content %}{% endblock %}</main><footer>Información para evaluar oportunidades. Revisá el pliego antes de participar.</footer></body></html>
