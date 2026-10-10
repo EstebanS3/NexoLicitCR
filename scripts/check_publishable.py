@@ -1,5 +1,6 @@
 """Audit publishable files without displaying matching secrets or personal values."""
 
+import hashlib
 import re
 import shutil
 import subprocess
@@ -30,6 +31,10 @@ patterns = [
 ]
 # Derive private identifiers at runtime. Never hard-code the workstation identity.
 private = [Path.home().name.casefold()]
+# Exact reviewed image bytes; changed or additional binaries require manual review.
+reviewed_assets = {
+    "docs/assets/nexolicitcr-logo.png": "58ac82248b6e3a94511b63b4c10409682490d762deef013138c07b895531bfad",
+}
 errors = []
 for name in filter(None, paths):
     path = ROOT / name
@@ -44,6 +49,8 @@ for name in filter(None, paths):
     try:
         text = path.read_text()
     except UnicodeDecodeError:
+        if reviewed_assets.get(name) == hashlib.sha256(path.read_bytes()).hexdigest():
+            continue
         errors.append((name, "binary requires manual review"))
         continue
     if name in {"tests/test_config.py", "scripts/check_publishable.py"}:
