@@ -1,0 +1,6 @@
+﻿"Datos abiertos concursos";
+"Descripcion";"Numero procedimiento";"Institucion";"Tipo Procedimiento";"Tipo modalidad";"Clasificacion objeto";"Partida";"Numero de línea";"Adjudicatario";"Moneda";"Monto";"Tipo de cambio adjudicación";"Monto adjudicado en colones";"Estado de procedimiento";
+"Servicio de mantenimiento de redes";"DEMO-001";"Institucion de ejemplo";"LICITACIoN REDUCIDA";"Cantidad definida";"SERVICIOS";"1";"1";"Proveedor Uno S.A.";"CRC";"250.70";"452.56";"250.70";"Contrato";
+"Servicio de mantenimiento de redes";"DEMO-001";"Institucion de ejemplo";"LICITACIoN REDUCIDA";"Cantidad definida";"SERVICIOS";"1";"1";"Proveedor Uno S.A.";"CRC";"250.70";"448.21";"250.70";"Contrato";
+"Equipo de ejemplo";"DEMO-002";"Institucion de ejemplo";"LICITACIoN MAYOR";"Cantidad definida";"BIENES";"2";"3";"Proveedor Dos S.A.";"USD";"1000.5";"500.00";"500250.00";"Adjudicado";
+"Fila invalida";"DEMO-003";"Institucion de ejemplo";"LICITACIoN REDUCIDA";"Cantidad definida";"BIENES";"1";"1";"Proveedor Tres S.A.";"CRC";"-5";"500.00";"0";"Adjudicado";

@@ -50,6 +50,14 @@ class TenderLine(Contract):
     budget_total: Decimal | None = None
 
 
+class TenderFile(Contract):
+    number: str
+    name: str
+    document: str = ""
+    file_type: str = ""
+    size_mb: Decimal | None = None
+
+
 class Tender(Contract):
     source: Literal["sicop"] = "sicop"
     source_id: str = Field(pattern=r"^\d{1,30}$")
@@ -65,6 +73,7 @@ class Tender(Contract):
     source_version: str | None = None
     conditions: dict[str, str]
     lines: list[TenderLine]
+    files: list[TenderFile] = Field(default_factory=list)
     requirements_complete: Literal[False] = False
     warnings: list[str] = Field(default_factory=list)
 
@@ -85,4 +94,36 @@ class Tender(Contract):
         payload.pop("source_version")
         return hashlib.sha256(
             json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()
+        ).hexdigest()
+
+
+class Award(Contract):
+    """Línea adjudicada según el reporte de datos abiertos de SICOP (sin fecha de adjudicación)."""
+
+    source: Literal["sicop-datos-abiertos"] = "sicop-datos-abiertos"
+    procedure: str = Field(min_length=1)
+    title: str
+    institution: str
+    procedure_type: str
+    modality: str
+    object_class: str
+    lot: str
+    number: str
+    supplier: str = Field(min_length=1)
+    currency: str | None = None
+    amount: Decimal | None = None
+    exchange_rate: Decimal | None = None
+    amount_crc: Decimal | None = None
+    status_raw: str
+
+    @property
+    def key(self) -> str:
+        # El reporte repite filas y a veces varía solo el tipo de cambio: la línea adjudicada
+        # a un proveedor es la identidad; el resto es contenido versionable.
+        raw = "|".join((self.procedure, self.lot, self.number, self.supplier))
+        return hashlib.sha256(raw.encode()).hexdigest()[:32]
+
+    def fingerprint(self) -> str:
+        return hashlib.sha256(
+            json.dumps(self.model_dump(mode="json"), sort_keys=True, ensure_ascii=False).encode()
         ).hexdigest()

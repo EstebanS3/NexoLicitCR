@@ -3,12 +3,12 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-from pymongo import ASCENDING, MongoClient, ReturnDocument
+from pymongo import ASCENDING, MongoClient, ReturnDocument, UpdateOne
 from pymongo.errors import DuplicateKeyError
 from pymongo.read_concern import ReadConcern
 from pymongo.write_concern import WriteConcern
 
-from .models import CatalogItem, Tender
+from .models import Award, CatalogItem, Tender
 
 
 class ConflictError(Exception):
@@ -55,6 +55,8 @@ class Store:
         self.db.tenders.create_index("observed_at")
         self.db.tender_versions.create_index([("key", ASCENDING), ("hash", ASCENDING)], unique=True)
         self.db.sync_runs.create_index("started_at")
+        self.db.awards.create_index("procedure")
+        self.db.awards.create_index("supplier")
         self.db.catalog.update_one(
             {"_id": "company"},
             {"$setOnInsert": {"revision": 0, "items": [], "updated_at": utcnow()}},
@@ -214,3 +216,49 @@ class Store:
 
     def tender(self, key):
         return self.db.tenders.find_one({"_id": key})
+
+    def save_awards(self, awards: list[Award], observed_at, chunk=1000):
+        """Upsert por línea adjudicada; solo se reescribe lo que cambió de contenido."""
+        summary = {"changed": 0, "unchanged": 0}
+        for start in range(0, len(awards), chunk):
+            batch = awards[start : start + chunk]
+            current = {
+                row["_id"]: row["hash"]
+                for row in self.db.awards.find(
+                    {"_id": {"$in": [a.key for a in batch]}}, {"hash": 1}
+                )
+            }
+            operations = []
+            for award in batch:
+                digest = award.fingerprint()
+                if current.get(award.key) == digest:
+                    summary["unchanged"] += 1
+                    continue
+                summary["changed"] += 1
+                payload = award.model_dump(mode="json")  # Decimal exacto como texto.
+                operations.append(
+                    UpdateOne(
+                        {"_id": award.key},
+                        {
+                            "$set": {
+                                "hash": digest,
+                                "payload": payload,
+                                "procedure": award.procedure,
+                                "supplier": award.supplier,
+                                "observed_at": observed_at,
+                            },
+                            "$setOnInsert": {"first_seen": observed_at},
+                        },
+                        upsert=True,
+                    )
+                )
+            if operations:
+                self.db.awards.bulk_write(operations, ordered=False)
+        return summary
+
+    def awards_for(self, procedure, limit=500):
+        return list(
+            self.db.awards.find({"procedure": procedure})
+            .sort([("payload.lot", 1), ("payload.number", 1), ("_id", 1)])
+            .limit(limit)
+        )

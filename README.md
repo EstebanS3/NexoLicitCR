@@ -46,6 +46,7 @@ Las cajas discontinuas representan funciones previstas. Una compatibilidad futur
 | Administrador único y sesiones persistentes | Ejecución programada y worker duradero |
 | Creación, edición y desactivación de ítems del catálogo | Descarga de anexos y extracción de texto/OCR |
 | Ingesta manual con paginación, fallos registrados y versiones | Comparación explicable entre catálogo y requisitos |
+| Archivos del pliego (metadatos) y adjudicaciones históricas | Consulta de precios adjudicados por producto o palabra clave |
 | Búsqueda y detalle de concursos importados | Avisos y priorización de oportunidades |
 
 **Validaciones pendientes:** integración contra una base Atlas real, muestras de anexos y confirmación de la zona horaria de fechas SICOP sin offset.
@@ -107,6 +108,17 @@ uv run nexolicit sync --category all --limit 5 --since 2026-01-01
 La fecha de cierre se toma del detalle (`biddocEndDt`), nunca de la apertura. Condiciones referidas a anexos no implican ausencia de requisitos. Precios de líneas son presupuestados, no adjudicados. El JSON se interpreta con decimales exactos y se guarda como texto decimal; unidades desconocidas permanecen desconocidas.
 
 Las versiones y el estado actual se guardan en una transacción Atlas con mayoría; un fallo revierte la escritura. Un registro observado antes que el almacenado no lo reemplaza. Cada secuencia SICOP se conserva separada hasta validar su relación; no se mezclan expedientes arbitrariamente.
+
+## Adjudicaciones
+
+```bash
+uv run nexolicit awards --since 2026-01-01
+uv run nexolicit awards --since 2024-01-01 --until 2025-12-31
+```
+
+Fuente: reporte de datos abiertos del portal anterior de SICOP (`RE_DatosAbiertosConcursos_CONTROLLER`, CSV). SICOP admite como máximo 365 días por consulta; rangos mayores se parten en ventanas contiguas. El reporte no incluye fecha de adjudicación ni el número interno del concurso: se une con los concursos por número de procedimiento (`2026LD-...`). Repite filas y a veces la misma línea con distinto tipo de cambio; se identifica cada línea adjudicada por procedimiento, partida, línea y adjudicatario, y se conserva la última variante. Filas mal formadas se cuentan como rechazadas y la corrida termina como parcial. Los textos llegan con tildes perdidas en mayúsculas (`LICITACIoN`); se guardan tal cual.
+
+Los concursos importados registran además los metadatos de los archivos del pliego (`epCartelFile/getCartelFilesById`); la descarga sigue haciéndose desde el expediente en SICOP.
 
 ## Pruebas
 

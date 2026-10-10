@@ -1,17 +1,48 @@
+import csv
+import io
 import json
 import time
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
 
 import httpx
 from bs4 import BeautifulSoup
+from pydantic import ValidationError
 
-from .models import SourceDate, Tender, TenderLine
+from .models import Award, SourceDate, Tender, TenderFile, TenderLine
 
 BASE = "https://prod-api.sicop.go.cr"
+# Reporte de datos abiertos del portal anterior; es la única fuente pública de adjudicaciones.
+AWARDS_URL = "https://www.sicop.go.cr/moduloBid/servlet/report/RE_DatosAbiertosConcursos_CONTROLLER"
+AWARDS_MAX_DAYS = 365
+AWARD_COLUMNS = {
+    "Descripcion": "title",
+    "Numero procedimiento": "procedure",
+    "Institucion": "institution",
+    "Tipo Procedimiento": "procedure_type",
+    "Tipo modalidad": "modality",
+    "Clasificacion objeto": "object_class",
+    "Partida": "lot",
+    "Numero de línea": "number",
+    "Adjudicatario": "supplier",
+    "Moneda": "currency",
+    "Monto": "amount",
+    "Tipo de cambio adjudicación": "exchange_rate",
+    "Monto adjudicado en colones": "amount_crc",
+    "Estado de procedimiento": "status_raw",
+}
 RUBROS = {"bienes": "1", "obras": "3", "servicios": "5"}
 RETRY = {429, 500, 502, 503, 504}
+HEADERS = {
+    "Origin": "https://www.sicop.go.cr",
+    "Referer": "https://www.sicop.go.cr/",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/126.0 Safari/537.36"
+    ),
+}
 
 
 class SourceError(Exception):
@@ -68,7 +99,64 @@ def required(record, key):
     return str(value).strip()
 
 
-def normalize(listing, detail, lines, category, timezone=""):
+def normalize_files(files):
+    if not isinstance(files, list) or any(not isinstance(x, dict) for x in files):
+        raise SourceError("Archivos SICOP con formato inesperado")
+    normalized, numbers = [], set()
+    for item in files:
+        number = required(item, "docFileSeqno")
+        if number in numbers:
+            raise SourceError("Archivo SICOP repetido")
+        numbers.add(number)
+        normalized.append(
+            TenderFile(
+                number=number,
+                name=required(item, "clientFileNm"),
+                document=str(item.get("docNm") or ""),
+                file_type=str(item.get("fileTypeNm") or ""),
+                size_mb=amount(item.get("fileSizeMb")),
+            )
+        )
+    return sorted(normalized, key=lambda x: (len(x.number), x.number))
+
+
+def parse_awards(content: bytes):
+    """Interpretar el CSV de datos abiertos: título en la 1.ª fila, encabezado en la 2.ª, ';'."""
+    try:
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise SourceError("CSV de adjudicaciones con codificación inválida") from None
+    rows = list(csv.reader(io.StringIO(text.replace("\xa0", " ")), delimiter=";"))
+    if len(rows) < 2 or not rows[0] or "Datos abiertos" not in rows[0][0]:
+        raise SourceError("SICOP no devolvió el reporte de adjudicaciones; posible bloqueo")
+    header = [x.strip() for x in rows[1]]
+    if header[-1:] == [""]:
+        header = header[:-1]  # cada fila termina en ';'
+    if header != list(AWARD_COLUMNS):
+        raise SourceError("Columnas del reporte de adjudicaciones inesperadas")
+    awards, duplicates, rejected = {}, 0, 0
+    for row in rows[2:]:
+        if not any(x.strip() for x in row):
+            continue
+        if len(row) < len(header) or row[len(header) :] not in ([], [""]):
+            rejected += 1
+            continue
+        record = {AWARD_COLUMNS[h]: " ".join(v.split()) for h, v in zip(header, row, strict=False)}
+        try:
+            for field in ("amount", "exchange_rate", "amount_crc"):
+                record[field] = amount(record[field])
+            record["currency"] = record["currency"] or None
+            award = Award(**record)
+        except (SourceError, ValidationError):
+            rejected += 1
+            continue
+        # Filas idénticas o variantes de la misma línea: se conserva la última del reporte.
+        duplicates += award.key in awards
+        awards[award.key] = award
+    return list(awards.values()), {"duplicates": duplicates, "rejected": rejected}
+
+
+def normalize(listing, detail, lines, category, timezone="", files=()):
     for key in ("cartelNo", "cartelSeq"):
         if required(listing, key) != required(detail, key):
             raise SourceError("El detalle no corresponde al concurso solicitado")
@@ -135,6 +223,7 @@ def normalize(listing, detail, lines, category, timezone=""):
         source_version=str(detail["cartelVersion"]) if detail.get("cartelVersion") else None,
         conditions=conditions,
         lines=sorted(normalized_lines, key=lambda x: (x.lot, x.number)),
+        files=normalize_files(list(files)),
         warnings=warnings,
     )
 
@@ -148,26 +237,12 @@ class SicopClient:
     def close(self):
         self.client.close()
 
-    def post(self, path, payload):
+    def _fetch(self, method, url, expected_type, max_bytes, **kwargs):
+        """Bytes de una respuesta 200 del tipo esperado; HTML de bloqueo nunca pasa por vacío."""
         for attempt in range(3):
             self.sleep(self.delay)
             try:
-                with self.client.stream(
-                    "POST",
-                    BASE + path,
-                    json=payload,
-                    headers={
-                        "Origin": "https://www.sicop.go.cr",
-                        "Referer": "https://www.sicop.go.cr/",
-                        "Accept": "application/json, text/plain, */*",
-                        "Content-Type": "application/json",
-                        "User-Agent": (
-                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                            "AppleWebKit/537.36 (KHTML, like Gecko) "
-                            "Chrome/126.0 Safari/537.36"
-                        ),
-                    },
-                ) as response:
+                with self.client.stream(method, url, **kwargs) as response:
                     if response.status_code in RETRY:
                         if attempt == 2:
                             raise SourceError("SICOP temporalmente indisponible")
@@ -175,24 +250,38 @@ class SicopClient:
                         continue
                     if response.status_code != 200:
                         raise SourceError(f"SICOP respondió HTTP {response.status_code}")
-                    if "application/json" not in response.headers.get("content-type", "").lower():
-                        raise SourceError("SICOP no devolvió JSON; posible página de bloqueo")
+                    if expected_type not in response.headers.get("content-type", "").lower():
+                        raise SourceError("SICOP devolvió un tipo inesperado; posible bloqueo")
                     data = bytearray()
                     for chunk in response.iter_bytes():
                         data.extend(chunk)
-                        if len(data) > 8 * 1024 * 1024:
+                        if len(data) > max_bytes:
                             raise SourceError("Respuesta SICOP excede el límite de tamaño")
-                result = json.loads(data, parse_float=Decimal)
-                if not isinstance(result, dict):
-                    raise SourceError("Esquema SICOP inesperado")
-                return result
+                return bytes(data)
             except (httpx.TimeoutException, httpx.NetworkError):
                 if attempt == 2:
                     raise SourceError("No fue posible conectar con SICOP") from None
                 self.sleep(2**attempt)
-            except (ValueError, UnicodeError):
-                raise SourceError("Respuesta JSON SICOP inválida") from None
         raise SourceError("No fue posible consultar SICOP")
+
+    def _json(self, method, path, kind, **kwargs):
+        headers = dict(HEADERS, Accept="application/json, text/plain, */*")
+        data = self._fetch(
+            method, BASE + path, "application/json", 8 * 1024 * 1024, headers=headers, **kwargs
+        )
+        try:
+            result = json.loads(data, parse_float=Decimal)
+        except (ValueError, UnicodeError):
+            raise SourceError("Respuesta JSON SICOP inválida") from None
+        if not isinstance(result, kind):
+            raise SourceError("Esquema SICOP inesperado")
+        return result
+
+    def post(self, path, payload):
+        return self._json("POST", path, dict, json=payload)
+
+    def get_list(self, path, params):
+        return self._json("GET", path, list, params=params)
 
     def pages(self, path, filters, max_pages=100, size=100):
         seen = set()
@@ -232,4 +321,27 @@ class SicopClient:
         ids = {k: required(listing, k) for k in ("cartelNo", "cartelSeq")}
         detail = self.post("/bid/api/v1/public/epCartel/findPublishedById", ids)
         lines = list(self.pages("/bid/api/v1/public/epCartelProd/findByEpCartelId", ids))
-        return normalize(listing, detail, lines, category, timezone)
+        files = self.get_list(
+            "/bid/api/v1/public/epCartelFile/getCartelFilesById", dict(ids, docFileSeqno="")
+        )
+        return normalize(listing, detail, lines, category, timezone, files)
+
+    def awards(self, start: date, end: date):
+        """Adjudicaciones del reporte de datos abiertos; SICOP limita el rango a un año."""
+        if start > end or (end - start).days > AWARDS_MAX_DAYS:
+            raise SourceError("Rango de adjudicaciones inválido (máximo 365 días)")
+        content = self._fetch(
+            "POST",
+            AWARDS_URL,
+            "text/csv",
+            128 * 1024 * 1024,
+            data={
+                "cmd": "downloadCSV",
+                "bgnYmd": start.strftime("%d/%m/%Y"),
+                "endYmd": end.strftime("%d/%m/%Y"),
+                "item_sn": "",
+                "seq_hist_sn": "",
+            },
+            headers=dict(HEADERS, Accept="text/csv, */*"),
+        )
+        return parse_awards(content)

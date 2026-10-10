@@ -7,6 +7,7 @@ from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from .config import Settings
 from .ingestion import sync as synchronize
+from .ingestion import sync_awards
 from .security import PASSWORDS, valid_username, validate_password
 from .sicop import RUBROS, SicopClient, SourceError
 from .storage import Store, connect
@@ -117,6 +118,41 @@ def sync(
         f"errores={result['errors']}. Consulta acotada por rubro."
     )
     if result["errors"]:
+        raise typer.Exit(1)
+
+
+@app.command()
+def awards(
+    since: str = typer.Option(..., help="Inicio AAAA-MM-DD"),
+    until: str = typer.Option("", help="Fin AAAA-MM-DD; por defecto hoy"),
+):
+    """Importar adjudicaciones del reporte de datos abiertos (ventanas de hasta 365 días)."""
+    try:
+        start = date.fromisoformat(since)
+        end = date.fromisoformat(until) if until else date.today()
+    except ValueError:
+        raise typer.BadParameter("Fechas en formato AAAA-MM-DD") from None
+    if start > end or end > date.today():
+        raise typer.BadParameter("Rango inválido: inicio <= fin <= hoy")
+
+    def run(store, cfg):
+        client = SicopClient()
+        try:
+            return sync_awards(store, client, start, end)
+        finally:
+            client.close()
+
+    try:
+        result = db_action(run)
+    except SourceError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from None
+    typer.echo(
+        f"Corrida {result['run_id']}: {result['status']}; líneas={result['seen']}, "
+        f"actualizadas={result['changed']}, sin cambios={result['unchanged']}, "
+        f"duplicadas={result['duplicates']}, rechazadas={result['rejected']}."
+    )
+    if result["rejected"]:
         raise typer.Exit(1)
 
 

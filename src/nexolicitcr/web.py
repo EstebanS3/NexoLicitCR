@@ -295,7 +295,12 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
         if not tender:
             raise HTTPException(404, "Concurso inexistente")
         return render(
-            request, "tender.html", csrf=current["csrf"], record=tender, tender=tender["payload"]
+            request,
+            "tender.html",
+            csrf=current["csrf"],
+            record=tender,
+            tender=tender["payload"],
+            awards=[x["payload"] for x in store.awards_for(tender["payload"]["procedure"])],
         )
 
     return app
