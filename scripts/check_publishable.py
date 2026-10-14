@@ -59,7 +59,9 @@ for name in filter(None, paths):
             "mongodb+srv://user:secret@cluster.example.mongodb.net/", "SYNTHETIC_TEST_URI"
         )
     if any(x.search(text) for x in patterns) or any(
-        x in text.casefold() for x in private if len(x) > 3
+        re.search(r"(?<![a-z0-9_])" + re.escape(x) + r"(?![a-z0-9_])", text.casefold())
+        for x in private
+        if len(x) > 3
     ):
         errors.append((name, "possible private data"))
 if errors:
