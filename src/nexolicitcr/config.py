@@ -26,6 +26,21 @@ class Settings(BaseSettings):
     sicop_timezone: str = ""
     redis_url: SecretStr = SecretStr("")
     mongo_timeout_ms: int = Field(default=5000, ge=500, le=30000)
+    installation_id: str = Field(default="nexolicit", pattern=r"^[a-z0-9][a-z0-9_-]{0,47}$")
+    environment: Literal["development", "test", "production"] = "development"
+    redis_namespace: str = Field(default="nexolicitcr", pattern=r"^[a-z0-9][a-z0-9_-]{0,47}$")
+    cache_ttl_seconds: int = Field(default=120, ge=5, le=900)
+    cache_timeout_ms: int = Field(default=150, ge=20, le=1000)
+    cache_breaker_seconds: int = Field(default=30, ge=1, le=300)
+    job_lease_seconds: int = Field(default=90, ge=15, le=600)
+    job_max_attempts: int = Field(default=3, ge=1, le=10)
+    worker_poll_seconds: float = Field(default=2, ge=0.1, le=60)
+    document_max_bytes: int = Field(default=20971520, ge=1024, le=52428800)
+    document_max_pages: int = Field(default=30, ge=1, le=100)
+    document_max_files: int = Field(default=5, ge=1, le=20)
+    extraction_timeout_seconds: int = Field(default=120, ge=5, le=600)
+    # Exact hosts only. Enable Oracle hosts only after checking source provenance.
+    document_hosts: str = "www.sicop.go.cr,prod-api.sicop.go.cr"
     session_hours: int = Field(default=8, ge=1, le=24)
 
     @model_validator(mode="after")
@@ -34,6 +49,15 @@ class Settings(BaseSettings):
             self.validate_local_mongo()
         else:
             self.validate_atlas()
+        if self.redis_url.get_secret_value():
+            redis = urlsplit(self.redis_url.get_secret_value())
+            if (
+                redis.scheme not in {"redis", "rediss"}
+                or not redis.hostname
+                or redis.query
+                or redis.fragment
+            ):
+                raise ValueError("REDIS_URL requiere redis/rediss sin opciones adicionales")
         origin = urlsplit(self.public_origin)
         if (
             origin.username

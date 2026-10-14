@@ -10,60 +10,22 @@
 
 NexoLicitCR busca acercar las compras públicas de Costa Rica a las pequeñas y medianas empresas. Su objetivo es conectar lo que tu empresa ofrece con lo que las instituciones necesitan, reducir la revisión repetitiva de concursos y ayudarte a decidir cuáles merecen atención.
 
-**La base actual permite registrar tu catálogo e importar y consultar concursos de SICOP.** La comparación automática de compatibilidades y los avisos todavía están en desarrollo; no se determina automáticamente si una empresa cumple todos los requisitos para participar.
+**Catálogo, radar de afinidad, seguimiento y sincronizaciones durables** en un monolito Python. La UI combina azul profundo, marfil, jerarquía editorial y animaciones accesibles. Una coincidencia ayuda a revisar un expediente; no garantiza elegibilidad.
 
-## Pensado para tu empresa
+- Administrador, sesiones persistentes, CSRF y catálogo con revisión de concurrencia.
+- Ingesta SICOP, versiones, reconsulta de activos y trabajos con leases/checkpoints.
+- Radar con razones por término/código, evidencia documental y decisiones independientes.
+- Descarga acotada a GridFS, extracción PDF/OCR español y estados parciales explícitos.
+- Redis opcional con aislamiento por aplicación, entorno, instalación y base, invalidación versionada y fallback.
+- Histórico de **ofertas presentadas**. Comparables adjudicados pendientes de fuente validada.
 
-| Necesidad de la PYME | Cómo la aborda el proyecto |
-|---|---|
-| Explicar qué vende y qué puede hacer | Catálogo de productos y servicios, capacidades, cobertura y palabras clave. |
-| Consultar oportunidades en un solo lugar | Importación de concursos de bienes, obras y servicios, con detalle y líneas solicitadas. |
-| Identificar cambios en lo consultado | Versiones por contenido y registro de las corridas de importación. |
-| Reducir la búsqueda repetitiva | Base de ingesta bajo demanda; ejecución programada prevista en una etapa posterior. |
-| Priorizar oportunidades afines | Comparación con el catálogo y avisos previstos; aún no disponibles. |
+![Estructura de datos MongoDB](docs/assets/mongodb-schema.png)
 
-## Del catálogo a la oportunidad
-
-```mermaid
-flowchart LR
-    A[Catálogo de tu PYME] --> D[Comparación de compatibilidad]
-    B[Concursos SICOP] --> C[Importación y versiones]
-    C --> D
-    D --> E[Avisos de oportunidades]
-    E --> F[Revisión del expediente por tu empresa]
-    classDef actual fill:#e7f5ef,stroke:#007f63,color:#102c40;
-    classDef previsto fill:#f3f5f7,stroke:#64748b,color:#102c40,stroke-dasharray:5 5;
-    class A,B,C actual;
-    class D,E previsto;
-```
-
-Las cajas discontinuas representan funciones previstas. Una compatibilidad futura será una señal para revisar el expediente, no una garantía de admisibilidad ni de adjudicación.
-
-## Estado del producto
-
-| Disponible en esta base | Próximas etapas |
-|---|---|
-| Administrador único y sesiones persistentes | Ejecución programada y worker duradero |
-| Creación, edición y desactivación de ítems del catálogo | Descarga de anexos y extracción de texto/OCR |
-| Ingesta manual con paginación, fallos registrados y versiones | Comparación explicable entre catálogo y requisitos |
-| Búsqueda y detalle de concursos importados | Avisos y priorización de oportunidades |
-
-**Validaciones pendientes:** integración contra una base Atlas real, muestras de anexos y confirmación de la zona horaria de fechas SICOP sin offset.
-
-## Arquitectura
-
-Un **monolito modular Python**, ejecutable localmente bajo demanda o en un servidor:
-
-- **FastAPI + Jinja2:** aplicación web con HTML/CSS y autenticación.
-- **CLI compartida:** inicialización, creación del administrador e ingesta SICOP.
-- **MongoDB Atlas o MongoDB local:** única persistencia para catálogo, sesiones, concursos y versiones.
-- **Redis opcional:** reservado para caché futura; no se requiere ni se utiliza actualmente.
-
-No requiere un segundo backend. Atlas y la ingesta real de SICOP necesitan Internet; MongoDB local permite probar la UI y fixtures sin esos servicios.
+Ver [arquitectura y librerías](docs/architecture.md), [operación y Docker](docs/operations.md) y [estado verificable de los issues](docs/planning-status.md).
 
 ## Instalación
 
-Requiere Python 3.12 o 3.13, uv y una base de desarrollo en Atlas con permisos de lectura/escritura e índices. La ejecución local también requiere Internet para Atlas.
+Requiere Python 3.12 o 3.13, uv y MongoDB Atlas o un replica set local autenticado. OCR requiere Tesseract español y Poppler.
 
 ```bash
 uv sync --frozen
@@ -81,7 +43,7 @@ Completar `.env` localmente:
 | `APP_MODE` | `local` o `server`. |
 | `PUBLIC_ORIGIN` | Origen exacto del navegador; local: `http://localhost:8000`. |
 | `SICOP_TIMEZONE` | Vacío conserva fechas sin zona como pendientes; configurar una zona IANA solo después de validar su significado. |
-| `REDIS_URL` | Reservado para la futura caché opcional. |
+| `REDIS_URL` | Vacío deshabilita la caché; configurar un usuario Redis ACL propio en servidor. |
 
 `MONGO_MODE=atlas` es el valor predeterminado. TLS Atlas siempre está habilitado. No se admiten opciones que relajen la validación de certificados. `.env` nunca debe versionarse.
 
@@ -97,7 +59,7 @@ Para servidor: configurar `APP_MODE=server`, origen HTTPS y un proxy TLS que pre
 
 ## Desarrollo con MongoDB local
 
-La UI existente incluye login, catálogo, búsqueda y detalle de concursos. Para probarla sin Atlas, usar MongoDB Community como **replica set de un nodo**; un servidor standalone no permite las transacciones utilizadas por la ingesta. Compass administra el servidor, pero no lo reemplaza.
+La UI incluye login, catálogo, radar, seguimiento, sincronizaciones, documentos y detalle de concursos. Para probarla sin Atlas, usar MongoDB Community como **replica set de un nodo**; un servidor standalone no permite las transacciones utilizadas por la ingesta. Compass administra el servidor, pero no lo reemplaza.
 
 Instalar el binario oficial `mongod` siguiendo la [guía de MongoDB](https://www.mongodb.com/docs/v8.0/tutorial/install-mongodb-on-os-x-tarball/). Se puede extraer dentro de `var/tools/`, que está ignorado. El helper utiliza el puerto 27017 y no reemplaza un `.env` existente:
 
@@ -131,11 +93,11 @@ uv run python scripts/local_mongo.py stop
 ## Importación manual
 
 ```bash
-uv run nexolicit sync --category bienes --limit 10
-uv run nexolicit sync --category all --limit 5 --since 2026-01-01
+uv run nexolicit sync --category bienes --limit 10 --once
+uv run nexolicit sync --category all --limit 5 --since 2026-01-01 --once
 ```
 
-`limit` limita los concursos procesados por rubro, no el número de solicitudes necesarias para filtrar fechas. La corrida queda registrada; una importación parcial termina con código de error. Las fechas se filtran del lado del cliente y no se presupone orden descendente perfecto. No se usa una marca de agua que oculte actualizaciones: las corridas acotadas revisitan los registros consultados; para cobertura histórica/activos fuera de ese rango se requieren barridos adicionales. Máximo 100 páginas por recurso; alcanzar el límite se informa como consulta incompleta.
+`sync` sin `--once` encola un trabajo; ejecutar `worker` para procesarlo. La UI devuelve 202 después de persistir. `--once` procesa un intento y devuelve error si queda parcial. `limit` limita entradas nuevas y, por separado, activos reconsultados por rubro. Los activos se revisitan empezando por los menos recientemente consultados; las fechas desconocidas permanecen explícitas. Más detalles de límites y recuperación en [operación](docs/operations.md).
 
 La fecha de cierre se toma del detalle (`biddocEndDt`), nunca de la apertura. Condiciones referidas a anexos no implican ausencia de requisitos. Precios de líneas son presupuestados, no adjudicados. El JSON se interpreta con decimales exactos y se guarda como texto decimal; unidades desconocidas permanecen desconocidas.
 
@@ -158,7 +120,7 @@ Para verificar Atlas de forma explícita, configurar `.env` y una base de prueba
 NEXO_TEST_ATLAS=1 NEXO_TEST_DATABASE=nexolicit_test_integration uv run pytest -m integration
 ```
 
-La prueba crea índices y catálogo inicial si faltan; limpia únicamente los documentos de concursos que ella creó, nunca toda la base. Usar una base descartable dedicada. Redis y OCR no se simulan como funcionalidades terminadas.
+La prueba crea índices y catálogo inicial si faltan; limpia únicamente los documentos de concursos que ella creó, nunca toda la base. Usar una base descartable dedicada. La lógica de Redis se prueba con un doble; OCR escaneado/mixto real, Redis real y Atlas requieren validación adicional.
 
 ## Privacidad y límites
 

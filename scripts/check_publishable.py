@@ -33,6 +33,7 @@ patterns = [
 private = [Path.home().name.casefold()]
 # Exact reviewed image bytes; changed or additional binaries require manual review.
 reviewed_assets = {
+    "docs/assets/mongodb-schema.png": "3878f364077ba6d5d32016652c794a06121850bc3dc1852cec37cd4c40f51bbe",
     "docs/assets/nexolicitcr-logo.png": "58ac82248b6e3a94511b63b4c10409682490d762deef013138c07b895531bfad",
 }
 errors = []

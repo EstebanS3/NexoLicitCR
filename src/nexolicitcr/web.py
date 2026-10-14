@@ -6,14 +6,17 @@ from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 from pymongo.errors import PyMongoError
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from .cache import OptionalCache
 from .config import Settings
+from .jobs import JobQueue
+from .matching import Radar, deadline_status, score
 from .models import CatalogItem
 from .security import DUMMY_HASH, check_password, valid_username
 from .storage import ConflictError, Store, connect, token_hash, utcnow
@@ -61,9 +64,14 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
         mongo = connect(settings)
         store = Store(mongo[settings.database_name])
 
+    cache = OptionalCache(settings)
+    radar = Radar(store, cache)
+    queue = JobQueue(store, settings)
+
     @asynccontextmanager
     async def lifespan(app):
         yield
+        cache.close()
         if mongo is not None:
             mongo.close()
 
@@ -91,7 +99,7 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
         else:
             response = await call_next(request)
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; script-src 'none'; style-src 'self'; img-src 'self'; "
+            "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; "
             "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
         )
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -131,7 +139,9 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
         return current
 
     def render(request, template, **context):
-        return TEMPLATES.TemplateResponse(request=request, name=template, context=context)
+        return TEMPLATES.TemplateResponse(
+            request=request, name=template, context={"cache_status": cache.status, **context}
+        )
 
     def login_page(request, error="", status=200):
         nonce = secrets.token_urlsafe(32)
@@ -160,14 +170,35 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
         return {
             "mongodb": "available",
             "mongo_mode": settings.mongo_mode,
-            "cache": "unused",
+            "cache": cache.status,
             "redis_required": False,
         }
 
     @app.get("/", response_class=HTMLResponse)
     def home(request: Request):
         current = session(request)
-        return render(request, "home.html", csrf=current["csrf"])
+        rows = radar.rows()
+        stats = {
+            "total": len(rows),
+            "relevant": sum(
+                r["match"]["score"] > 0 and r["current_status"] not in {"closed", "canceled"}
+                for r in rows
+            ),
+            "following": sum(r["decision"].get("status") == "following" for r in rows),
+            "catalog": sum(i["active"] for i in store.catalog()["items"]),
+        }
+        return render(
+            request,
+            "home.html",
+            csrf=current["csrf"],
+            stats=stats,
+            opportunities=rows[:4],
+            recent_jobs=list(
+                store.db.jobs.find({"installation_id": settings.installation_id})
+                .sort("created_at", -1)
+                .limit(3)
+            ),
+        )
 
     @app.get("/login", response_class=HTMLResponse)
     def login_get(request: Request):
@@ -301,7 +332,200 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
         if not tender:
             raise HTTPException(404, "Concurso inexistente")
         return render(
-            request, "tender.html", csrf=current["csrf"], record=tender, tender=tender["payload"]
+            request,
+            "tender.html",
+            csrf=current["csrf"],
+            record=tender,
+            tender=tender["payload"],
+            current_status=deadline_status(tender["payload"]),
+            match=score(
+                tender["payload"],
+                store.catalog(),
+                list(
+                    store.db.extracted_pages.find(
+                        {
+                            "document_id": {
+                                "$in": store.db.documents.distinct(
+                                    "_id",
+                                    {
+                                        "tender_key": key,
+                                        "current": True,
+                                        "state": {"$in": ["ready", "partial"]},
+                                    },
+                                )
+                            }
+                        }
+                    )
+                ),
+            ),
+            documents=list(store.db.documents.find({"tender_key": key})),
+            offers=list(store.db.offers.find({"tender_key": key}).sort("fetched_at", -1).limit(50)),
+            decision=store.db.decisions.find_one({"company": "company", "tender_key": key}) or {},
+        )
+
+    @app.get("/opportunities", response_class=HTMLResponse)
+    def opportunities(
+        request: Request, status: str = "active", q: str = "", minimum: int = 0, page: int = 1
+    ):
+        current = session(request)
+        if (
+            status not in {"active", "all", "following", "discarded", "unknown", "closed"}
+            or len(q) > 120
+            or not 0 <= minimum <= 100
+            or not 1 <= page <= 1000
+        ):
+            raise HTTPException(422, "Filtros inválidos")
+        rows = radar.rows()
+        filtered = [
+            r
+            for r in rows
+            if r["match"]["score"] >= minimum
+            and q.casefold() in (r["tender"]["title"] + " " + r["tender"]["institution"]).casefold()
+            and (
+                status == "all"
+                or status == "active"
+                and r["current_status"] not in {"closed", "canceled"}
+                and r["decision"].get("status") != "discarded"
+                or status in {"following", "discarded"}
+                and r["decision"].get("status") == status
+                or status in {"unknown", "closed"}
+                and r["current_status"] == status
+            )
+        ]
+        return render(
+            request,
+            "opportunities.html",
+            csrf=current["csrf"],
+            rows=filtered[(page - 1) * 25 : page * 25],
+            total=len(filtered),
+            page=page,
+            status=status,
+            q=q,
+            minimum=minimum,
+        )
+
+    @app.post("/decisions/{key}")
+    def decision_post(
+        request: Request,
+        key: str,
+        csrf: str = Form(max_length=128),
+        status: str = Form(max_length=20),
+        note: str = Form(default="", max_length=2000),
+    ):
+        require_csrf(request, csrf)
+        try:
+            radar.decide(key, status, note)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+        return RedirectResponse(f"/tenders/{key}", status_code=303)
+
+    @app.get("/jobs", response_class=HTMLResponse)
+    def jobs_get(request: Request):
+        current = session(request)
+        return render(
+            request,
+            "jobs.html",
+            csrf=current["csrf"],
+            jobs=list(
+                store.db.jobs.find({"installation_id": settings.installation_id})
+                .sort("created_at", -1)
+                .limit(50)
+            ),
+            idempotency_key=secrets.token_urlsafe(24),
+        )
+
+    @app.post("/sync-runs")
+    def sync_post(
+        request: Request,
+        csrf: str = Form(max_length=128),
+        category: str = Form(default="all"),
+        limit: int = Form(default=10, ge=1, le=500),
+        since: str = Form(default="", max_length=10),
+        idempotency_key: str = Form(min_length=1, max_length=128),
+        documents: bool = Form(default=False),
+    ):
+        require_csrf(request, csrf)
+        try:
+            job = queue.enqueue(category, limit, since, idempotency_key, documents)
+        except ValueError:
+            raise HTTPException(422, "Filtros o clave de idempotencia inválidos") from None
+        if "text/html" in request.headers.get("accept", ""):
+            return RedirectResponse(f"/jobs/{job['_id']}/view", status_code=303)
+        return JSONResponse(
+            {"job_id": job["_id"], "status": job["status"], "url": f"/jobs/{job['_id']}/view"},
+            status_code=202,
+        )
+
+    @app.get("/jobs/{job_id}")
+    def job_status(request: Request, job_id: str):
+        session(request)
+        job = queue.get(job_id)
+        if not job:
+            raise HTTPException(404, "Trabajo inexistente")
+        return {
+            key: job.get(key)
+            for key in (
+                "_id",
+                "status",
+                "progress",
+                "attempt",
+                "error_code",
+                "cancel_requested",
+                "errors",
+            )
+        }
+
+    @app.get("/jobs/{job_id}/view", response_class=HTMLResponse)
+    def job_view(request: Request, job_id: str):
+        current = session(request)
+        job = queue.get(job_id)
+        if not job:
+            raise HTTPException(404, "Trabajo inexistente")
+        return render(request, "job.html", csrf=current["csrf"], job=job)
+
+    @app.post("/jobs/{job_id}/cancel")
+    def job_cancel(request: Request, job_id: str, csrf: str = Form(max_length=128)):
+        require_csrf(request, csrf)
+        if not queue.get(job_id):
+            raise HTTPException(404)
+        queue.cancel(job_id)
+        return RedirectResponse(f"/jobs/{job_id}/view", status_code=303)
+
+    @app.get("/documents/{document_id}", response_class=HTMLResponse)
+    def document_view(request: Request, document_id: str):
+        current = session(request)
+        document = store.db.documents.find_one({"_id": document_id})
+        if not document:
+            raise HTTPException(404)
+        return render(
+            request,
+            "document.html",
+            csrf=current["csrf"],
+            document=document,
+            pages=list(store.db.extracted_pages.find({"document_id": document_id}).sort("page", 1)),
+        )
+
+    @app.get("/documents/{document_id}/download")
+    def document_download(request: Request, document_id: str):
+        session(request)
+        import gridfs
+
+        document = store.db.documents.find_one({"_id": document_id})
+        if not document or not document.get("gridfs_id"):
+            raise HTTPException(404)
+        fs = gridfs.GridFS(store.db)
+        if not fs.exists(document["gridfs_id"]):
+            raise HTTPException(404)
+
+        def chunks():
+            with fs.get(document["gridfs_id"]) as stream:
+                while chunk := stream.read(65536):
+                    yield chunk
+
+        return StreamingResponse(
+            chunks(),
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": 'attachment; filename="documento.bin"'},
         )
 
     return app

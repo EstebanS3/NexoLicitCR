@@ -58,6 +58,33 @@ class Store:
         self.db.tenders.create_index("observed_at")
         self.db.tender_versions.create_index([("key", ASCENDING), ("hash", ASCENDING)], unique=True)
         self.db.sync_runs.create_index("started_at")
+        self.db.jobs.create_index([("installation_id", 1), ("idempotency_key", 1)], unique=True)
+        self.db.jobs.create_index(
+            [("installation_id", 1), ("status", 1), ("next_attempt_at", 1), ("lease_until", 1)]
+        )
+        self.db.decisions.create_index([("company", 1), ("tender_key", 1)], unique=True)
+        self.db.matches.create_index(
+            [
+                ("company", 1),
+                ("catalog_revision", 1),
+                ("tender_key", 1),
+                ("tender_hash", 1),
+                ("rules_version", 1),
+                ("document_generation", 1),
+            ],
+            unique=True,
+        )
+        self.db.documents.create_index(
+            [("tender_key", 1), ("source_identity", 1), ("sha256", 1)], unique=True
+        )
+        self.db.documents.create_index("state")
+        self.db.extracted_pages.create_index([("document_id", 1), ("page", 1)], unique=True)
+        self.db.offers.create_index(
+            [("tender_key", 1), ("source_hash", 1), ("position", 1)], unique=True
+        )
+        self.db.metadata.update_one(
+            {"_id": "corpus"}, {"$setOnInsert": {"generation": 0}}, upsert=True
+        )
         self.db.catalog.update_one(
             {"_id": "company"},
             {"$setOnInsert": {"revision": 0, "items": [], "updated_at": utcnow()}},
@@ -150,11 +177,13 @@ class Store:
             raise ConflictError("El catálogo cambió; recargá antes de guardar.")
         return item_id
 
-    def save_tender(self, tender: Tender, observed_at):
+    def save_tender(self, tender: Tender, observed_at, fence=None):
         payload = tender.model_dump(mode="json")  # Decimal values remain exact strings.
         digest = tender.fingerprint()
 
         def persist(session):
+            if fence:
+                fence(session)
             current = self.db.tenders.find_one({"_id": tender.key}, session=session)
             if current and current["observed_at"] > observed_at:
                 return "stale"
@@ -179,6 +208,10 @@ class Store:
                 upsert=True,
                 session=session,
             )
+            if changed:
+                self.db.metadata.update_one(
+                    {"_id": "corpus"}, {"$inc": {"generation": 1}}, upsert=True, session=session
+                )
             return "changed" if changed else "unchanged"
 
         # A concurrent first insert may conflict on unique keys. Retry the transaction,

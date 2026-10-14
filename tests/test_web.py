@@ -111,7 +111,7 @@ def test_rate_limit_and_body_limit(client):
 
 def test_security_headers_and_host(client):
     response = client.get("/login")
-    assert "script-src 'none'" in response.headers["content-security-policy"]
+    assert "script-src 'self'" in response.headers["content-security-policy"]
     assert response.headers["cache-control"] == "no-store"
     assert response.headers["referrer-policy"] == "same-origin"
     assert client.get("/login", headers={"host": "attacker.example"}).status_code == 400
@@ -213,3 +213,76 @@ def test_login_rejects_untrusted_origins(client, origin):
     )
     assert response.status_code == 403
     assert "nexo_session" not in client.cookies
+
+
+def test_persistent_jobs_http_and_csrf(client, store):
+    assert (
+        client.post(
+            "/sync-runs",
+            data={"csrf": "x", "idempotency_key": "anonymous"},
+            headers=ORIGIN,
+            follow_redirects=False,
+        ).status_code
+        == 303
+    )
+    login(client)
+    token = csrf(client.get("/jobs"))
+    data = {
+        "csrf": token,
+        "category": "bienes",
+        "limit": 5,
+        "since": "",
+        "idempotency_key": "http-once",
+    }
+    response = client.post("/sync-runs", data=data, headers=ORIGIN | {"accept": "application/json"})
+    assert response.status_code == 202
+    job_id = response.json()["job_id"]
+    assert store.db.jobs.find_one({"_id": job_id})["status"] == "queued"
+    assert client.post("/sync-runs", data=data, headers=ORIGIN).json()["job_id"] == job_id
+    assert client.get(f"/jobs/{job_id}").json()["status"] == "queued"
+    assert client.get(f"/jobs/{job_id}/view").status_code == 200
+    assert (
+        client.post(f"/jobs/{job_id}/cancel", data={"csrf": "bad"}, headers=ORIGIN).status_code
+        == 403
+    )
+    assert (
+        client.post(f"/jobs/{job_id}/cancel", data={"csrf": token}, headers=ORIGIN).status_code
+        == 200
+    )
+    assert store.db.jobs.find_one({"_id": job_id})["cancel_requested"]
+    store.db.jobs.update_one({"_id": job_id}, {"$set": {"installation_id": "other"}})
+    assert client.get(f"/jobs/{job_id}").status_code == 404
+
+
+def test_radar_filters_and_decision_survive_catalog_edit(client, store):
+    import json
+    from pathlib import Path
+
+    from nexolicitcr.models import CatalogItem
+    from nexolicitcr.sicop import normalize
+
+    data = json.loads((Path(__file__).parent / "fixtures/tender.json").read_text())
+    tender = normalize(data["listing"], data["detail"], data["lines"], "servicios")
+    store.db.tenders.insert_one(
+        {
+            "_id": tender.key,
+            "payload": tender.model_dump(mode="json"),
+            "source_url": tender.source_url,
+            "observed_at": utcnow(),
+        }
+    )
+    login(client)
+    token = csrf(client.get("/catalog"))
+    assert (
+        client.post(
+            f"/decisions/{tender.key}",
+            data={"csrf": token, "status": "following", "note": "<script>private</script>"},
+            headers=ORIGIN,
+        ).status_code
+        == 200
+    )
+    store.save_catalog_item(CatalogItem(name="Redes", keywords=["redes"]), 0)
+    assert client.get("/opportunities?status=following").status_code == 200
+    assert "1 resultados" in client.get("/opportunities?status=following").text
+    assert "&lt;script&gt;private" in client.get(f"/tenders/{tender.key}").text
+    assert client.get("/opportunities?minimum=101").status_code == 422
