@@ -59,7 +59,7 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
     mongo = None
     if store is None:
         mongo = connect(settings)
-        store = Store(mongo[settings.atlas_base])
+        store = Store(mongo[settings.database_name])
 
     @asynccontextmanager
     async def lifespan(app):
@@ -156,7 +156,12 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
     @app.get("/health/ready")
     def ready():
         store.ping()
-        return {"atlas": "available", "cache": "unused", "redis_required": False}
+        return {
+            "mongodb": "available",
+            "mongo_mode": settings.mongo_mode,
+            "cache": "unused",
+            "redis_required": False,
+        }
 
     @app.get("/", response_class=HTMLResponse)
     def home(request: Request):

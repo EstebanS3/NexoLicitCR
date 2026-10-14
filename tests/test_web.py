@@ -177,3 +177,25 @@ def test_imported_tender_detail_search_and_escaping(client, store):
     assert "<script>alert" not in detail.text
     assert client.get("/tenders/absent").status_code == 404
     assert client.get("/tenders", params={"q": ".*"}).text.count("No hay concursos") == 1
+
+
+def test_readiness_reports_selected_mongo_backend(settings, store):
+    from fastapi.testclient import TestClient
+
+    from nexolicitcr.config import Settings
+    from nexolicitcr.web import create_app
+
+    cfg = Settings(
+        _env_file=None,
+        **settings.model_dump()
+        | {
+            "mongo_mode": "local",
+            "mongo_local_usuario": "local-user",
+            "mongo_local_clave": "test-only-local-password",
+        },
+    )
+    with TestClient(create_app(cfg, store), base_url="http://localhost:8000") as client:
+        response = client.get("/health/ready")
+        assert response.status_code == 200
+        assert response.json()["mongo_mode"] == "local"
+        assert response.json()["mongodb"] == "available"

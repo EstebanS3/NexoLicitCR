@@ -24,12 +24,15 @@ def token_hash(value):
 
 
 def connect(settings):
+    local = settings.mongo_mode == "local"
     return MongoClient(
-        settings.atlas_uri.get_secret_value(),
-        username=settings.atlas_usuario.get_secret_value(),
-        password=settings.atlas_clave.get_secret_value(),
-        authSource=settings.atlas_authdb,
-        tls=True,
+        (settings.mongo_local_uri if local else settings.atlas_uri).get_secret_value(),
+        username=(
+            settings.mongo_local_usuario if local else settings.atlas_usuario
+        ).get_secret_value(),
+        password=(settings.mongo_local_clave if local else settings.atlas_clave).get_secret_value(),
+        authSource="admin" if local else settings.atlas_authdb,
+        tls=not local,
         serverSelectionTimeoutMS=settings.mongo_timeout_ms,
         connectTimeoutMS=settings.mongo_timeout_ms,
         socketTimeoutMS=10000,

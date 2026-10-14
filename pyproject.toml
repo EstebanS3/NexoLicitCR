@@ -19,7 +19,7 @@ nexolicit = "nexolicitcr.cli:app"
 dev = ["pytest>=8,<10", "ruff>=0.11,<1", "mongomock>=4.3,<5", "pip-audit>=2.9,<3"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["integration: requires an explicitly configured isolated Atlas database"]
+markers = ["integration: requires an explicitly configured isolated MongoDB database"]
 [tool.ruff]
 target-version = "py312"
 line-length = 100
