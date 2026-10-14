@@ -28,14 +28,14 @@ def db_action(action):
     cfg = settings()
     try:
         with connect(cfg) as client:
-            store = Store(client[cfg.atlas_base])
+            store = Store(client[cfg.database_name])
             store.ping()
             return action(store, cfg)
     except DuplicateKeyError:
         typer.echo("El registro ya existe; no se sobrescribió.", err=True)
         raise typer.Exit(1) from None
     except PyMongoError:
-        typer.echo("Atlas no disponible o sin permisos para la operación.", err=True)
+        typer.echo("MongoDB no disponible o sin permisos para la operación.", err=True)
         raise typer.Exit(1) from None
 
 

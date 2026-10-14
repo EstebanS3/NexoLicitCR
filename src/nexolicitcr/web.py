@@ -59,7 +59,7 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
     mongo = None
     if store is None:
         mongo = connect(settings)
-        store = Store(mongo[settings.atlas_base])
+        store = Store(mongo[settings.database_name])
 
     @asynccontextmanager
     async def lifespan(app):
