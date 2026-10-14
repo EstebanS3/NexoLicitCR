@@ -110,6 +110,8 @@ def test_rate_limit_and_body_limit(client):
 
 def test_security_headers_and_host(client):
     response = client.get("/login")
+    # Con "no-referrer" los navegadores envían Origin: null en formularios y el login falla.
+    assert response.headers["referrer-policy"] == "same-origin"
     assert "script-src 'none'" in response.headers["content-security-policy"]
     assert response.headers["cache-control"] == "no-store"
     assert client.get("/login", headers={"host": "attacker.example"}).status_code == 400
