@@ -95,7 +95,8 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
             "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
         )
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["Referrer-Policy"] = "no-referrer"
+        # Preserve Origin on HTML form POSTs; suppress referrers to external sites.
+        response.headers["Referrer-Policy"] = "same-origin"
         response.headers["Cache-Control"] = "no-store"
         if settings.secure_cookies:
             response.headers["Strict-Transport-Security"] = "max-age=31536000"

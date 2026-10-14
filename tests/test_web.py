@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+import pytest
 from bs4 import BeautifulSoup
 from pymongo.errors import ConnectionFailure
 
@@ -112,6 +113,7 @@ def test_security_headers_and_host(client):
     response = client.get("/login")
     assert "script-src 'none'" in response.headers["content-security-policy"]
     assert response.headers["cache-control"] == "no-store"
+    assert response.headers["referrer-policy"] == "same-origin"
     assert client.get("/login", headers={"host": "attacker.example"}).status_code == 400
 
 
@@ -199,3 +201,15 @@ def test_readiness_reports_selected_mongo_backend(settings, store):
         assert response.status_code == 200
         assert response.json()["mongo_mode"] == "local"
         assert response.json()["mongodb"] == "available"
+
+
+@pytest.mark.parametrize("origin", ["null", "https://attacker.example", "http://localhost:8001"])
+def test_login_rejects_untrusted_origins(client, origin):
+    token = csrf(client.get("/login"))
+    response = client.post(
+        "/login",
+        data={"username": "admin", "password": "test-password-for-fixtures", "csrf": token},
+        headers={"origin": origin},
+    )
+    assert response.status_code == 403
+    assert "nexo_session" not in client.cookies
