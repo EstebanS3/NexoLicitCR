@@ -15,9 +15,10 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .cache import OptionalCache
 from .config import Settings
+from .discovery import matching_catalog, suggest
 from .jobs import JobQueue
 from .matching import Radar, deadline_status, score
-from .models import CatalogItem
+from .models import CatalogItem, CompanyProfile
 from .security import DUMMY_HASH, check_password, valid_username
 from .storage import ConflictError, Store, connect, token_hash, utcnow
 
@@ -192,7 +193,14 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
             "home.html",
             csrf=current["csrf"],
             stats=stats,
-            opportunities=rows[:4],
+            profile=store.catalog().get("profile"),
+            opportunities=[
+                r
+                for r in rows
+                if r["current_status"] not in {"closed", "canceled"}
+                and r["match"]["score"] > 0
+                and r["decision"].get("status") != "discarded"
+            ][:4],
             recent_jobs=list(
                 store.db.jobs.find({"installation_id": settings.installation_id})
                 .sort("created_at", -1)
@@ -254,6 +262,95 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
         response = RedirectResponse("/login", status_code=303)
         response.delete_cookie("nexo_session")
         return response
+
+    @app.get("/discover", response_class=HTMLResponse)
+    def discover(request: Request):
+        current = session(request)
+        catalog = store.catalog()
+        return render(
+            request,
+            "discover.html",
+            csrf=current["csrf"],
+            profile=catalog.get("profile") or {},
+            revision=catalog["revision"],
+            step=1,
+        )
+
+    @app.post("/discover/draft", response_class=HTMLResponse)
+    def discover_draft(
+        request: Request,
+        csrf: str = Form(max_length=128),
+        activity: str = Form(min_length=12, max_length=1000),
+        revision: int = Form(ge=0),
+    ):
+        require_csrf(request, csrf)
+        catalog = store.catalog()
+        old = catalog.get("profile") or {}
+        services = (
+            old.get("services", [])
+            if activity.strip() == old.get("activity")
+            else suggest(activity)
+        )
+        return render(
+            request,
+            "discover.html",
+            csrf=csrf,
+            revision=revision,
+            step=2,
+            profile={**old, "activity": activity, "services": services},
+        )
+
+    @app.post("/discover/confirm")
+    def discover_confirm(
+        request: Request,
+        csrf: str = Form(max_length=128),
+        revision: int = Form(ge=0),
+        activity: str = Form(min_length=12, max_length=1000),
+        services: str = Form(max_length=1000),
+        coverage: str = Form(default="", max_length=500),
+        exclusions: str = Form(default="", max_length=2100),
+        category: str = Form(default="all"),
+        confirmed: bool = Form(default=False),
+    ):
+        require_csrf(request, csrf)
+        if not confirmed:
+            raise HTTPException(422, "Confirmá que el perfil describe lo que ofrece tu empresa.")
+        try:
+            profile = CompanyProfile(
+                activity=activity,
+                services=[x.strip() for x in services.split(",") if x.strip()],
+                coverage=coverage,
+                exclusions=[x.strip() for x in exclusions.split(",") if x.strip()],
+                category=category,
+            )
+        except ValueError:
+            raise HTTPException(
+                422, "Revisá el perfil: entre 1 y 8 servicios, de hasta 100 caracteres cada uno."
+            ) from None
+        store.save_profile(profile, revision)
+        return RedirectResponse("/opportunities?minimum=1", status_code=303)
+
+    @app.post("/discover/search")
+    def discover_search(
+        request: Request,
+        csrf: str = Form(max_length=128),
+        revision: int = Form(ge=0),
+        idempotency_key: str = Form(min_length=1, max_length=128),
+    ):
+        require_csrf(request, csrf)
+        catalog = store.catalog()
+        if not catalog.get("profile") or catalog["revision"] != revision:
+            raise HTTPException(409, "El perfil cambió. Recargá antes de actualizar la búsqueda.")
+        try:
+            job = queue.enqueue(
+                catalog["profile"]["category"], 10, "", idempotency_key, profile_revision=revision
+            )
+        except ValueError:
+            raise HTTPException(
+                409,
+                "Esta solicitud corresponde a otro perfil. Recargá para iniciar una nueva consulta.",
+            ) from None
+        return RedirectResponse(f"/jobs/{job['_id']}/view", status_code=303)
 
     @app.get("/catalog", response_class=HTMLResponse)
     def catalog_get(request: Request, edit: str = ""):
@@ -340,7 +437,7 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
             current_status=deadline_status(tender["payload"]),
             match=score(
                 tender["payload"],
-                store.catalog(),
+                matching_catalog(store.catalog()),
                 list(
                     store.db.extracted_pages.find(
                         {
@@ -392,9 +489,13 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
                 and r["current_status"] == status
             )
         ]
+        catalog = store.catalog()
         return render(
             request,
             "opportunities.html",
+            profile=catalog.get("profile"),
+            search_key=secrets.token_urlsafe(24),
+            profile_revision=catalog["revision"],
             csrf=current["csrf"],
             rows=filtered[(page - 1) * 25 : page * 25],
             total=len(filtered),

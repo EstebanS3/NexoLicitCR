@@ -7,13 +7,16 @@ uv sync --frozen
 uv run nexolicit init-db
 uv run nexolicit create-admin
 uv run nexolicit api
-# Otra terminal cuando se quiera procesar la cola:
+# En local, api inicia y supervisa su propio worker. Para gestionarlo aparte:
+uv run nexolicit api --no-worker
 uv run nexolicit worker
 # Sin proceso permanente:
 uv run nexolicit sync --category servicios --limit 5 --once
 uv run nexolicit sync --category bienes --limit 3 --documents --once
 uv run nexolicit worker --once
 ```
+
+En `APP_MODE=local`, `api` inicia automáticamente un worker del mismo entorno/configuración, lo reinicia si termina inesperadamente y detiene únicamente ese proceso al cerrar la API. `api --no-worker` permite gestionarlo manualmente. En `APP_MODE=server`, web y worker siguen separados (Compose). No es un servicio que se inicie al encender el equipo. Una interrupción recupera trabajos mediante sus leases.
 
 Sin `--once`, `sync` solo encola. `--once` procesa un intento y devuelve error si no finaliza satisfactoriamente; los reintentos pendientes siguen en MongoDB. Cada rubro revisita hasta `limit` activos/fechas desconocidas empezando por la observación más antigua, además de hasta `limit` entradas del listado. No sustituye un barrido histórico completo. Se omiten duplicados del mismo intento. `since` filtra el listado reciente, no impide reconsultar activos.
 

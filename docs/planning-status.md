@@ -34,3 +34,7 @@ uv run python scripts/benchmark_matching.py --output artifacts/matching-benchmar
 Resultados conservados en [matching-offline.json](benchmarks/matching-offline.json): cinco muestras, un ítem de catálogo. A 100 concursos: cálculo p50 2,066 ms / p95 2,190 ms; lectura del doble de caché p50 0,189 ms / p95 0,262 ms. A 10.000: cálculo p50 236,577 ms / p95 296,923 ms; caché p50 26,319 ms / p95 26,803 ms. Igualdad comprobada en ambos tamaños.
 
 Es un **microbenchmark de cálculo/serialización en memoria**. No incluye queries MongoDB, red Redis, HTTP, autenticación ni OCR, y no permite atribuir esa mejora a producción. Radar calcula el conjunto y luego pagina; conjuntos grandes todavía requieren medición y optimización de consultas. Valores de caché de más de 4 MiB se omiten de forma segura. No existe una medición de precisión/exhaustividad sin etiquetas humanas.
+
+## Demo guiada · 14 de octubre de 2026
+
+Alcance ajustado en issues 3, 4, 7, 8 y 10. Demo `/discover`: actividad, sugerencias deterministas editables, confirmación con revisión, perfil en MongoDB sin reemplazar catálogo, matching y consulta acotada/idempotente con revisión del perfil en el job. Worker automático supervisado en modo local. 81 pruebas offline pasan y el recorrido login → actividad → borrador fue comprobado por HTTP contra MongoDB local sin guardar un perfil ficticio. API y MongoDB están iniciados por solicitud del usuario, sustituyendo el estado detenido indicado en la entrega anterior. Feedback que propone cambios, evaluación humana y validaciones externas siguen pendientes.

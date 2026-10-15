@@ -117,7 +117,9 @@ class Radar:
         self.store, self.cache = store, cache
 
     def version(self):
-        catalog = self.store.catalog()
+        from .discovery import matching_catalog
+
+        catalog = matching_catalog(self.store.catalog())
         generation = (self.store.db.metadata.find_one({"_id": "corpus"}) or {}).get("generation", 0)
         return catalog, generation
 

@@ -30,7 +30,9 @@ class JobQueue:
         self.collection = store.db.jobs
         self.scope = settings.installation_id
 
-    def enqueue(self, category, limit, since, idempotency_key, documents=False):
+    def enqueue(
+        self, category, limit, since, idempotency_key, documents=False, profile_revision=None
+    ):
         if (
             category not in {*RUBROS, "all"}
             or not 1 <= limit <= 500
@@ -42,8 +44,12 @@ class JobQueue:
         if since:
             date.fromisoformat(since)
         payload = JobPayload(
-            category=category, limit=limit, since=since, documents=documents
-        ).model_dump()
+            category=category,
+            limit=limit,
+            since=since,
+            documents=documents,
+            profile_revision=profile_revision,
+        ).model_dump(exclude_none=True)
         digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
         row = {
             "_id": uuid4().hex,

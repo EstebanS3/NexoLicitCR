@@ -177,6 +177,17 @@ class Store:
             raise ConflictError("El catálogo cambió; recargá antes de guardar.")
         return item_id
 
+    def save_profile(self, profile, revision):
+        result = self.db.catalog.update_one(
+            {"_id": "company", "revision": revision},
+            {
+                "$set": {"profile": profile.model_dump(), "updated_at": utcnow()},
+                "$inc": {"revision": 1},
+            },
+        )
+        if result.matched_count != 1:
+            raise ConflictError("El perfil cambió en otra ventana. Recargá antes de confirmar.")
+
     def save_tender(self, tender: Tender, observed_at, fence=None):
         payload = tender.model_dump(mode="json")  # Decimal values remain exact strings.
         digest = tender.fingerprint()

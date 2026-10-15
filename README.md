@@ -53,6 +53,8 @@ uv run nexolicit create-admin
 uv run nexolicit api
 ```
 
+En modo local, `nexolicit api` arranca también el worker; no requiere otra terminal. Para gestionarlo por separado: `nexolicit api --no-worker`.
+
 Abrir `http://localhost:8000`. Crear administrador solicita la contraseña por entrada oculta (14–256 caracteres), sin contraseña predeterminada. Solo permite un administrador; no reemplaza cuentas existentes. Inicializar índices es idempotente y no borra colecciones. Mantener credenciales y copias de seguridad fuera de Git.
 
 Para servidor: configurar `APP_MODE=server`, origen HTTPS y un proxy TLS que preserve el Host; exponer exclusivamente el proxy y restringir el puerto del backend. El servidor no confía automáticamente en cabeceras reenviadas. Este repositorio no provisiona Atlas ni despliega servicios públicos.
@@ -134,3 +136,7 @@ No se han confirmado todos los requisitos necesarios para participar a partir de
 El símbolo conecta módulos para formar una **N** y una dirección de avance: representa a una PYME que transforma información dispersa en oportunidades mediante automatización. El azul profundo aporta solidez y el verde identifica conexión y crecimiento.
 
 Distribuido bajo la [licencia MIT](LICENSE).
+
+## Evolución propuesta
+
+[Descubrimiento guiado desde la actividad de la empresa](docs/guided-discovery.md): demo en `/discover`: actividad libre, perfil editable y confirmado, oportunidades explicadas y actualización acotada de SICOP. Las sugerencias son deterministas y requieren revisión; feedback asistido y evaluación humana siguen pendientes.
