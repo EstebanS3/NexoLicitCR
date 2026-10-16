@@ -126,6 +126,21 @@ def sync(
 
 
 @app.command()
+def resume(job_id: str):
+    """Reanudar una consulta fallida/cancelada conservando progreso y filtros."""
+    from .jobs import JobQueue
+
+    def run(store, cfg):
+        try:
+            job = JobQueue(store, cfg).resume(job_id)
+        except (LookupError, ValueError) as exc:
+            raise typer.BadParameter(str(exc)) from None
+        typer.echo(f"Job: {job['_id']} · Estado: {job['status']}")
+
+    db_action(run)
+
+
+@app.command()
 def worker(once: bool = typer.Option(False, "--once")):
     """Procesar jobs de INSTALLATION_ID; Ctrl+C termina sin perder la cola."""
     import logging
@@ -140,8 +155,17 @@ def worker(once: bool = typer.Option(False, "--once")):
         queue, owner = JobQueue(store, cfg), uuid4().hex
         try:
             while True:
-                job = queue.claim(owner)
-                result = execute(queue, job) if job else None
+                try:
+                    job = queue.claim(owner)
+                    result = execute(queue, job) if job else None
+                except PyMongoError:
+                    if once:
+                        raise
+                    logging.getLogger(__name__).warning(
+                        "MongoDB no disponible; la cola se retomará automáticamente."
+                    )
+                    time.sleep(max(2, cfg.worker_poll_seconds))
+                    continue
                 if once:
                     if result and result["status"] != "succeeded":
                         raise typer.Exit(1)

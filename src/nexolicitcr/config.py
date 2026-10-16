@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     app_mode: Literal["local", "server"] = "local"
     public_origin: str = "http://localhost:8000"
     sicop_timezone: str = ""
+    sicop_request_delay_seconds: float = Field(default=2, ge=0.4, le=30)
     redis_url: SecretStr = SecretStr("")
     mongo_timeout_ms: int = Field(default=5000, ge=500, le=30000)
     installation_id: str = Field(default="nexolicit", pattern=r"^[a-z0-9][a-z0-9_-]{0,47}$")

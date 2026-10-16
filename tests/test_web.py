@@ -283,6 +283,45 @@ def test_radar_filters_and_decision_survive_catalog_edit(client, store):
     )
     store.save_catalog_item(CatalogItem(name="Redes", keywords=["redes"]), 0)
     assert client.get("/opportunities?status=following").status_code == 200
-    assert "1 resultados" in client.get("/opportunities?status=following").text
+    assert "1 resultado" in client.get("/opportunities?status=following").text
     assert "&lt;script&gt;private" in client.get(f"/tenders/{tender.key}").text
     assert client.get("/opportunities?minimum=101").status_code == 422
+
+
+def test_resume_job_requires_csrf_and_preserves_history(client, store):
+    login(client)
+    token = csrf(client.get("/jobs"))
+    response = client.post(
+        "/sync-runs", data={"csrf": token, "idempotency_key": "resume-web"}, headers=ORIGIN
+    )
+    job_id = response.json()["job_id"]
+    assert (
+        client.post(f"/jobs/{job_id}/resume", data={"csrf": token}, headers=ORIGIN).status_code
+        == 409
+    )
+    store.db.jobs.update_one(
+        {"_id": job_id},
+        {"$set": {"status": "failed", "progress": 1, "checkpoint": ["bienes:A:00"]}},
+    )
+    assert "Reanudar pendientes" in client.get(f"/jobs/{job_id}/view").text
+    assert (
+        client.post(f"/jobs/{job_id}/resume", data={"csrf": "invalid"}, headers=ORIGIN).status_code
+        == 403
+    )
+    result = client.post(
+        f"/jobs/{job_id}/resume", data={"csrf": token}, headers=ORIGIN, follow_redirects=False
+    )
+    assert result.status_code == 303
+    assert (
+        client.post(
+            f"/jobs/{job_id}/resume", data={"csrf": token}, headers=ORIGIN, follow_redirects=False
+        ).headers["location"]
+        == result.headers["location"]
+    )
+    assert store.db.jobs.find_one({"resume_of": job_id})["checkpoint"] == ["bienes:A:00"]
+    assert store.db.jobs.find_one({"_id": job_id})["status"] == "failed"
+    store.db.jobs.update_one({"_id": job_id}, {"$set": {"installation_id": "other"}})
+    assert (
+        client.post(f"/jobs/{job_id}/resume", data={"csrf": token}, headers=ORIGIN).status_code
+        == 404
+    )

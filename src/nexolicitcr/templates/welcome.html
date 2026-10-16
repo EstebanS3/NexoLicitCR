@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% from '_guide.html' import help %}
+{% block title %}Bienvenido · NexoLicitCR{% endblock %}
+{% block content %}
+<section class="welcome-stage"><div class="welcome-orbit" aria-hidden="true"><span class="orbit-halo"></span><span class="welcome-mark">N</span><span class="orbit-spark"></span></div><p class="step-label">TU PRÓXIMO PASO, MÁS SIMPLE</p><h1>Lo que hacés.<br><span>Lo que viene.</span></h1><p class="welcome-intro">Conectá tu empresa con oportunidades de SICOP.<br>Empezá con un nombre y dos elecciones.</p><a class="button primary welcome-cta" href="/company">Crear mi empresa <span aria-hidden="true">→</span></a><p class="input-note">Sin documentos. Sin formularios largos.</p></section>
+<div class="welcome-roadmap"><div><span>01</span><strong>Elegí tu especialidad</strong><p>Nos das el contexto.</p></div><div><span>02</span><strong>Revisá tu perfil</strong><p>Vos tenés la última palabra.</p></div><div><span>03</span><strong>Explorá oportunidades</strong><p>Con una explicación para cada coincidencia.</p></div></div><div class="welcome-help">{{ help('radar') }}</div>
+{% endblock %}

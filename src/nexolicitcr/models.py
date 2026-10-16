@@ -147,15 +147,21 @@ class Document(Contract):
 
 
 class CompanyProfile(Contract):
+    sector: str = Field(default="", max_length=40)
+    specialty: str = Field(default="", max_length=40)
+    company_name: str = Field(default="", max_length=160)
     activity: str = Field(min_length=12, max_length=1000)
     services: list[str] = Field(min_length=1, max_length=8)
     coverage: str = Field(default="", max_length=500)
     exclusions: list[str] = Field(default_factory=list, max_length=20)
     category: Literal["all", "bienes", "servicios", "obras"] = "all"
-    suggestions_version: Literal["guided-v1"] = "guided-v1"
+    suggestions_version: Literal["guided-v1", "guided-v2"] = "guided-v2"
 
     @model_validator(mode="after")
     def validate_services(self):
+        from .sectors import specialty_terms
+
+        specialty_terms(self.sector, self.specialty)
         for term in self.services + self.exclusions:
             if not term.strip() or len(term) > 100:
                 raise ValueError("Servicios o exclusiones inválidos")

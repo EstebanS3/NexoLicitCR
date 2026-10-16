@@ -2,6 +2,8 @@ import json
 import time
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
+from email.utils import parsedate_to_datetime
+from math import ceil
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -16,6 +18,24 @@ RETRY = {429, 500, 502, 503, 504}
 
 class SourceError(Exception):
     """Public, credential-free error suitable for a CLI or UI."""
+
+
+class SourceRateLimited(SourceError):
+    def __init__(self, retry_after=300):
+        super().__init__("SICOP limitó la frecuencia de solicitudes")
+        self.retry_after = min(86400, max(60, retry_after))
+
+
+def retry_after_seconds(value):
+    try:
+        if value and value.strip().isdigit():
+            return min(86400, max(60, int(value)))
+        parsed = parsedate_to_datetime(value or "")
+        if parsed.tzinfo is None:
+            return 300
+        return min(86400, max(60, ceil((parsed - datetime.now(UTC)).total_seconds())))
+    except (TypeError, ValueError, OverflowError):
+        return 300
 
 
 def plain_text(value):
@@ -168,6 +188,10 @@ class SicopClient:
                         ),
                     },
                 ) as response:
+                    if response.status_code == 429:
+                        raise SourceRateLimited(
+                            retry_after_seconds(response.headers.get("Retry-After"))
+                        )
                     if response.status_code in RETRY:
                         if attempt == 2:
                             raise SourceError("SICOP temporalmente indisponible")

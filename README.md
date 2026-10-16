@@ -139,4 +139,6 @@ Distribuido bajo la [licencia MIT](LICENSE).
 
 ## Evolución propuesta
 
-[Descubrimiento guiado desde la actividad de la empresa](docs/guided-discovery.md): demo en `/discover`: actividad libre, perfil editable y confirmado, oportunidades explicadas y actualización acotada de SICOP. Las sugerencias son deterministas y requieren revisión; feedback asistido y evaluación humana siguen pendientes.
+[Descubrimiento guiado desde la actividad de la empresa](docs/guided-discovery.md): configuración de empresa, sector, especialidad y revisión de servicios en `/company` y `/discover`. Incluye 20 sectores y 65 especialidades editables, oportunidades explicadas y consultas acotadas de SICOP. Las sugerencias son deterministas y requieren confirmación; feedback asistido y evaluación humana siguen pendientes.
+
+La cola conserva avances y respeta pausas de SICOP ante HTTP 429. Desde Actividad se pueden reanudar consultas fallidas o canceladas sin perder checkpoints ni duplicar continuaciones. También: `uv run nexolicit resume ID_DE_CONSULTA`. Ver [operación y límites](docs/operations.md).

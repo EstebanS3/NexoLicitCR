@@ -38,3 +38,27 @@ Es un **microbenchmark de cálculo/serialización en memoria**. No incluye queri
 ## Demo guiada · 14 de octubre de 2026
 
 Alcance ajustado en issues 3, 4, 7, 8 y 10. Demo `/discover`: actividad, sugerencias deterministas editables, confirmación con revisión, perfil en MongoDB sin reemplazar catálogo, matching y consulta acotada/idempotente con revisión del perfil en el job. Worker automático supervisado en modo local. 81 pruebas offline pasan y el recorrido login → actividad → borrador fue comprobado por HTTP contra MongoDB local sin guardar un perfil ficticio. API y MongoDB están iniciados por solicitud del usuario, sustituyendo el estado detenido indicado en la entrega anterior. Feedback que propone cambios, evaluación humana y validaciones externas siguen pendientes.
+
+## Experiencia guiada y recuperación · 16 de octubre de 2026
+
+Configuración de empresa con sector, especialidad y revisión explícita, tutoriales,
+20 sectores y 65 especialidades comerciales editables; vocabulario y límites en
+[taxonomy.md](taxonomy.md). Menú responsive, contraste corregido y movimiento
+opcional con respeto a la preferencia de movimiento reducido. El radar filtra por
+rubro y permite consultas de 10–100 concursos recientes por rubro seleccionado,
+además de activos guardados. Confirmar el perfil no inicia consultas.
+
+La cola repara trabajos abandonados, mantiene checkpoints y recupera identidades
+fallidas aunque cambie el listado. HTTP429 pausa la instalación y respeta
+Retry-After, con esperas mínimas crecientes de 5/10/20 minutos. Reanudación explícita
+por web y CLI, conservando filtros e historial, sin duplicación por doble envío.
+
+Evidencia: **197 pruebas offline aprobadas**, 1 integración deseleccionada; Ruff
+check/formato, comprobador de privacidad y diff-check correctos. Navegador real:
+login, configuración por pasos, radar, filtro por rubro, móvil a 390 px sin
+desborde, navegación y mensajes de error/reanudación sin errores de consola.
+El corpus local llegó a 130 concursos reales (90 bienes, 20 obras, 20 servicios).
+La última ampliación quedó no completada por HTTP429 tras los intentos limitados;
+no acredita cobertura exhaustiva ni que haya un concurso vigente por especialidad.
+Las pruebas de reanudación usan dobles Mongo; no sustituyen recuperación física.
+Permanecen los pendientes de infraestructura y evaluación enumerados arriba.

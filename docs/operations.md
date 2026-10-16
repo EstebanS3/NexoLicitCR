@@ -66,3 +66,70 @@ NEXO_TEST_ATLAS=1 NEXO_TEST_DATABASE=nexolicit_test_integration uv run pytest -m
 ```
 
 Los tests con mongomock son evidencia de lógica, no de transacciones/recuperación física real. No se inicia MongoDB ni API automáticamente desde pytest. Para evaluar calidad se necesitan 30–50 pares catálogo/concurso etiquetados por humanos; no sustituirlos por etiquetas generadas. La prueba de equivalencia de caché usa un doble Redis con caída/recuperación; la latencia real requiere un Redis de prueba.
+
+### Mantenimiento automático de la cola
+
+El worker ejecuta mantenimiento al consultar la cola (por defecto cada 2 segundos
+cuando está libre) y al renovar el lease durante un trabajo (por defecto cada
+30 segundos). No necesita cron ni Redis. Todas las reparaciones filtran por
+`INSTALLATION_ID` y comprueban el estado actual en MongoDB de forma atómica:
+
+- Recupera trabajos con lease vencido o ausente, preservando checkpoints y progreso.
+- Resuelve cancelaciones pendientes sin interrumpir leases válidos.
+- Finaliza trabajos abandonados o pendientes que agotaron `JOB_MAX_ATTEMPTS`.
+- Repara fechas de ejecución ausentes en trabajos pendientes.
+- Conserva el historial y registra `maintenance_at` y `maintenance_action` en los
+  trabajos reparados, además de contadores en el log `queue_maintenance`.
+
+Si MongoDB se interrumpe durante el procesamiento, el worker continuo vuelve a
+intentar la conexión; `worker --once` mantiene su salida de error para scripts.
+Los fallos definitivos permanecen visibles: no se reinician indefinidamente ni
+se eliminan concursos automáticamente. Un fallo de la fuente no prueba que un
+registro sea ficticio. El mantenimiento requiere un worker activo; en local lo
+inicia y supervisa `api`, y en servidor debe estar activo el servicio worker.
+
+La pantalla de Actividad distingue consulta completada, reintento pendiente y
+consulta no completada. El número procesado incluye actualizaciones de concursos
+existentes; no equivale al número de concursos nuevos. Los resultados ya
+persistidos siguen disponibles aunque la fuente interrumpa el resto de la
+consulta. Ampliar el alcance no garantiza agotar todos los concursos de SICOP.
+
+### Frecuencia de SICOP
+
+`SICOP_REQUEST_DELAY_SECONDS` configura la pausa mínima entre peticiones del
+worker (predeterminado: 2 segundos). HTTP 429 detiene inmediatamente el intento,
+sin continuar con otros concursos. La cola conserva checkpoints y el concurso
+pendiente, respeta `Retry-After` numérico o fecha HTTP y espera cinco minutos si
+la fuente no informa un plazo. La espera queda persistida y bloquea nuevos
+trabajos SICOP de esa instalación, también después de reiniciar el worker.
+Los plazos se acotan entre un minuto y un día; se mantiene el máximo de intentos.
+La pantalla de actividad explica la pausa sin confundirla con datos inválidos.
+
+### Reanudar una consulta interrumpida
+
+Desde el detalle de una consulta fallida o cancelada, «Reanudar pendientes» crea
+una continuación con los mismos filtros, documentos y revisión de perfil. Copia
+los checkpoints exitosos y los errores todavía pendientes en una sola inserción;
+el worker nunca puede reclamar una continuación sin su progreso inicial.
+Doble clic o reenvío devuelve la misma continuación y no reinicia su avance.
+La consulta original conserva estado e historial, y la continuación enlaza su origen.
+
+También está disponible en CLI:
+
+```bash
+uv run nexolicit resume ID_DE_CONSULTA
+```
+
+La reanudación renueva el presupuesto de intentos únicamente por acción explícita;
+no reactiva indefinidamente trabajos agotados. Respeta la pausa compartida de
+la instalación. El alcance reciente se comprueba otra vez, por lo que el progreso
+acumulado puede superar el límite por rubro si la ventana de SICOP cambió.
+Los errores pendientes se cuentan por identidad única: ese número no incluye
+concursos que todavía no llegaron a consultarse.
+
+Ante HTTP 429 reiterado en un mismo trabajo, la espera mínima crece a 5, 10 y
+20 minutos; un Retry-After mayor prevalece, con tope de un día. El último plazo
+protege también las consultas nuevas aunque el trabajo agote sus intentos.
+La pantalla de Actividad informa de la pausa general y el detalle muestra la
+hora del siguiente intento en la zona horaria del navegador. Estos controles
+reducen solicitudes y conservan avances; no garantizan que SICOP retire un bloqueo.

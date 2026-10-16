@@ -64,3 +64,83 @@ Propuesta de entrega en dos incrementos: primero onboarding y perfil confirmado 
 ## Cómo probar la demo
 
 Abrir `/discover` con la sesión local. Escribir «Instalamos y mantenemos redes informáticas para oficinas». Revisar los servicios propuestos, cobertura opcional y tipo de oportunidades. Confirmar para consultar primero los concursos existentes; pulsar «Consultar novedades en SICOP» para encolar una consulta acotada. El perfil confirmado queda en MongoDB; no se crean concursos ficticios. Para el recorrido con datos sintéticos, usar `pytest tests/test_discovery.py` sin tocar la base local.
+
+### Correcciones de búsqueda (15 de octubre de 2026)
+
+La descripción se compara con un vocabulario controlado, sin llamadas a IA. Las
+sugerencias son un borrador que debe revisar la empresa. Se distinguen redes
+informáticas y redes sociales, se reconocen actividades de software y se omiten
+negaciones simples por cláusula. Una actividad desconocida requiere términos
+manuales; no se usan ubicaciones ni adjetivos como servicios.
+
+El radar compara los servicios confirmados y el catálogo manual con títulos,
+líneas y documentos disponibles. Normaliza tildes y mayúsculas, y reconoce una
+lista explícita de variantes de singular/plural. No interpreta semánticamente
+cualquier descripción ni determina elegibilidad. Las negaciones complejas y los
+sinónimos fuera del vocabulario requieren revisión humana.
+
+Con perfil confirmado, la vista «Por revisar» oculta afinidad cero por defecto.
+Afinidad mínima 0 permite explorar todo; los seguimientos siguen accesibles aunque
+el perfil cambie. El filtro de título/institución admite búsquedas sin tildes.
+La consulta a SICOP sigue siendo una ventana acotada por categoría, no una búsqueda
+exhaustiva por descripción. La cobertura geográfica no filtra automáticamente.
+
+Validación: 12 casos sintéticos de regresión (8 fallaban antes del arreglo), más
+la suite existente. Los datos sintéticos deben permanecer en una base de pruebas
+separada: un identificador ficticio mezclado con el corpus real provoca errores
+al reconsultarlo en SICOP. Los trabajos parciales conservan los concursos ya
+procesados; un error no significa que no existan resultados.
+
+### Inicio sin datos de demostración
+
+Al entrar sin perfil, la bienvenida explica tres pasos: nombre comercial,
+actividad y confirmación de servicios/cobertura/exclusiones. `/company` permite
+crear o editar la identidad; los borradores no escriben en MongoDB ni encolan
+consultas. El nombre acompaña al perfil en el dashboard y el radar. Al confirmar
+se guarda la empresa; consultar SICOP sigue siendo una acción explícita.
+Los errores de formularios solicitados como HTML muestran una página con opciones
+de recuperación; los clientes JSON conservan respuestas estructuradas.
+
+Las instalaciones nuevas no generan empresas, catálogos ni concursos de ejemplo.
+Para reiniciar un espacio local existente se detiene la API y el worker, se exporta
+cada colección a BSON en `var/backups` (ignorado por Git, permisos privados), se
+conserva `users` y se vacían los datos restantes mediante transacción. Se mantienen
+índices, se inicializa catálogo vacío y se aumenta la generación del corpus para
+invalidar caché. Las sesiones se cierran; el usuario inicia sesión nuevamente.
+
+### Experiencia guiada simplificada — 15 de octubre de 2026
+
+El recorrido muestra una decisión por pantalla: empresa → sector → especialidad
+→ revisión. Los desplegables son nativos; la interfaz mejora progresivamente con
+JavaScript y conserva formularios de servidor. Para especialidades conocidas la
+descripción es opcional: el servidor genera una frase explícita a partir de la
+selección. «Otra actividad» requiere contexto y servicios manuales.
+
+La revisión presenta servicios seleccionables y despliega edición manual,
+cobertura, exclusiones y categoría solo cuando se necesitan. Confirmar es una
+acción explícita que guarda el perfil; no encola una consulta. Volver utiliza
+`POST /discover/revise` y conserva servicios y ajustes en el borrador, sin escribir
+en MongoDB ni depender del historial del navegador. Los fallos al confirmar se
+muestran junto al formulario y conservan lo escrito.
+
+Hay tutoriales breves plegables en la configuración y el radar; el primer radar
+distingue entre no haber consultado, no disponer aún de datos y filtros sin
+coincidencias. Controles táctiles, foco al cambiar de paso, cierre de sesión móvil,
+contraste explícito y respeto a movimiento reducido completan el recorrido.
+Las pruebas de navegador usan borradores: no reemplazan la empresa guardada.
+
+### Personalización y navegación — 16 de octubre de 2026
+
+La actividad se elige entre 20 sectores y 65 especialidades; el vocabulario y sus
+límites se documentan en [taxonomy.md](taxonomy.md). El radar permite elegir
+consultas de 10, 25, 50 o 100 concursos recientes por rubro confirmado, además de
+revisar hasta ese número de activos guardados. El alcance forma parte de la
+idempotencia. Un filtro independiente permite explorar bienes, servicios u obras
+del corpus local; se conserva al paginar y no modifica el perfil de la empresa.
+
+La navegación prioriza Inicio, Mi radar y Mi empresa, con exploración y actividad
+como opciones secundarias. El menú se adapta a pantalla estrecha; los controles,
+las tarjetas, los servicios seleccionables y las ayudas tienen feedback visual.
+Las transiciones entre páginas aprovechan View Transitions cuando está disponible,
+sin interceptar enlaces o formularios ni retrasar las acciones. Se respeta la
+preferencia de movimiento reducido y el regreso mediante historial del navegador.

@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from .models import Match, Tender
 from .storage import ConflictError, utcnow
 
-RULES_VERSION = "2026-10-v1"
+RULES_VERSION = "2026-10-v2"
 
 
 def normalized(value):
@@ -20,8 +20,54 @@ def normalized(value):
     )
 
 
+# Explicit inflections avoid unsafe stemming (e.g. "red" vs "redes sociales").
+INFLECTIONS = [
+    ("red", "redes"),
+    ("informatica", "informaticas"),
+    ("informatico", "informaticos"),
+    ("mueble", "muebles"),
+    ("oficina", "oficinas"),
+    ("edificio", "edificios"),
+    ("aplicacion", "aplicaciones"),
+    ("alimento", "alimentos"),
+    ("jardin", "jardines"),
+    ("zona", "zonas"),
+    ("verde", "verdes"),
+]
+VARIANTS = {word: pair for pair in INFLECTIONS for word in pair}
+
+
+def term_pattern(term):
+    words = normalized(term).split()
+    if not words:
+        return None
+    return (
+        r"(?<!\w)"
+        + r"\s+".join(
+            "(?:" + "|".join(re.escape(v) for v in VARIANTS.get(word, (word,))) + ")"
+            for word in words
+        )
+        + r"(?!\w)"
+    )
+
+
 def contains(text, term):
-    return bool(re.search(r"(?<!\w)" + re.escape(normalized(term)) + r"(?!\w)", normalized(text)))
+    pattern = term_pattern(term)
+    return bool(pattern and re.search(pattern, normalized(text)))
+
+
+def evidence_fragment(text, term):
+    # Map normalized characters back to the source so whitespace and accents do
+    # not shift the excerpt. The returned fragment always comes from real evidence.
+    chars, offsets = [], []
+    for index, character in enumerate(text):
+        for value in unicodedata.normalize("NFKD", character.lower()):
+            if not unicodedata.combining(value):
+                chars.append(value)
+                offsets.append(index)
+    match = re.search(term_pattern(term), "".join(chars))
+    position = offsets[match.start()] if match else 0
+    return text[max(0, position - 60) : position + 180]
 
 
 def deadline_status(tender, now=None):
@@ -63,14 +109,13 @@ def score(tender, catalog, pages=()):
                         review = True
             for term in item.get("keywords", []) or [item["name"]]:
                 if contains(text, term):
-                    position = normalized(text).find(normalized(term))
                     reasons.append(
                         {
                             "term": term,
                             "method": method,
                             "document_id": document,
                             "page": page,
-                            "fragment": text[max(0, position - 60) : position + 180],
+                            "fragment": evidence_fragment(text, term),
                             "weight": weight,
                         }
                     )

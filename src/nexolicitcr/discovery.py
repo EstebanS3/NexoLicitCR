@@ -4,38 +4,53 @@ import re
 
 from .matching import normalized
 
-SUGGESTIONS_VERSION = "guided-v1"
+SUGGESTIONS_VERSION = "guided-v2"
+# Deliberately narrow phrases: an ambiguous "redes" is not an IT service.
 VOCABULARY = [
     (
-        ("redes", "informatica", "tecnologia"),
-        ["redes", "soporte técnico", "mantenimiento informático"],
-    ),
-    (("limpieza", "aseo"), ["limpieza", "aseo", "desinfección"]),
-    (
-        ("construccion", "remodelacion"),
-        ["construcción", "remodelación", "mantenimiento de edificios"],
+        ("redes informáticas", "redes de datos", "cableado estructurado"),
+        ["redes informáticas", "redes de datos", "cableado estructurado"],
     ),
     (
-        ("alimentos", "alimentacion", "catering"),
-        ["alimentación", "catering", "preparación de alimentos"],
+        ("soporte técnico", "mantenimiento informático"),
+        ["soporte técnico", "mantenimiento informático"],
     ),
-    (("jardineria", "jardines"), ["jardinería", "mantenimiento de zonas verdes"]),
-    (("muebles", "mobiliario"), ["mobiliario", "muebles de oficina"]),
+    (("redes sociales",), ["redes sociales"]),
+    (("publicidad", "marketing"), ["publicidad", "marketing"]),
+    (
+        ("software", "aplicaciones web", "desarrollo web"),
+        ["software", "aplicaciones web", "desarrollo web"],
+    ),
+    (("limpieza", "aseo"), ["limpieza", "aseo"]),
+    (("desinfección",), ["desinfección"]),
+    (("construcción", "remodelación"), ["construcción", "remodelación"]),
+    (("alimentos", "alimentación", "catering"), ["alimentación", "catering", "alimentos"]),
+    (("jardinería", "jardines"), ["jardinería", "mantenimiento de zonas verdes"]),
+    (("muebles", "mobiliario"), ["mobiliario", "muebles"]),
 ]
-STOP = set(
-    "somos empresa ofrecemos servicios generales hacemos dedicada dedicamos nuestro nuestra para desde hasta como instalamos mantenemos vendemos servicio una unos unas los las del con por que hacemos tenemos".split()
-)
 
 
 def suggest(activity):
-    text = normalized(activity)
+    from .matching import contains
+
+    # Conservative clause-level negation, not a general Spanish language parser.
+    clauses = re.split(r"[.;,!\n]|\b(?:pero|aunque|sin embargo)\b", normalized(activity))
+    positive, negative = [], []
+    for clause in clauses:
+        parts = re.split(r"\b(?:no|sin|excepto|excluyendo)\b", clause, maxsplit=1)
+        positive.append(parts[0])
+        if len(parts) > 1:
+            negative.append(parts[1])
     terms = []
     for triggers, suggestions in VOCABULARY:
-        if any(re.search(r"(?<!\w)" + re.escape(t) + r"(?!\w)", text) for t in triggers):
+        if any(contains(clause, trigger) for clause in positive for trigger in triggers):
             terms.extend(suggestions)
-    if not terms:
-        terms = [word for word in re.findall(r"[a-z]{4,}", text) if word not in STOP]
-    return list(dict.fromkeys(terms))[:8]
+    # Unknown activities require manual terms, never guesses from locations/adjectives.
+    return list(
+        dict.fromkeys(
+            term for term in terms if not any(contains(clause, term) for clause in negative)
+        )
+    )[:8]
 
 
 def matching_catalog(catalog):

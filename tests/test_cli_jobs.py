@@ -52,3 +52,21 @@ def test_api_owns_worker_only_in_local_mode(settings, monkeypatch):
     settings.app_mode = "server"
     CliRunner().invoke(app, ["api"])
     assert events == ["web"]
+
+
+def test_worker_recovers_after_mongo_outage(store, settings, monkeypatch):
+    from pymongo.errors import AutoReconnect
+
+    monkeypatch.setattr("nexolicitcr.cli.db_action", lambda action: action(store, settings))
+    events = []
+
+    def claim(self, owner):
+        events.append("claim")
+        if events.count("claim") == 1:
+            raise AutoReconnect("temporary outage")
+        raise KeyboardInterrupt()
+
+    monkeypatch.setattr(JobQueue, "claim", claim)
+    monkeypatch.setattr("time.sleep", lambda seconds: events.append("wait"))
+    assert CliRunner().invoke(app, ["worker"]).exit_code == 0
+    assert events == ["claim", "wait", "claim"]

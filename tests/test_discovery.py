@@ -123,3 +123,138 @@ def test_profile_changes_invalidate_radar_without_losing_decisions(store, settin
     )
     assert radar.rows()[0]["match"]["score"] == 0
     assert len(store.catalog()["items"]) == 0
+
+
+def test_company_onboarding_is_draft_until_confirmation(client, store):
+    from bs4 import BeautifulSoup
+
+    csrf = authenticated(client, store)
+    assert "Crear mi empresa" in client.get("/").text
+    assert client.get("/company").status_code == 200
+    company = client.post(
+        "/company/draft",
+        data={
+            "csrf": csrf,
+            "revision": 0,
+            "company_name": "Mi empresa nueva",
+        },
+        headers=ORIGIN,
+    )
+    assert company.status_code == 200
+    assert "profile" not in store.catalog()
+    draft = client.post(
+        "/discover/draft",
+        data={
+            "csrf": csrf,
+            "revision": 0,
+            "company_name": "Mi empresa nueva",
+            "activity": "Desarrollamos software para empresas",
+        },
+        headers=ORIGIN,
+    )
+    assert "Mi empresa nueva" in draft.text
+    assert store.db.jobs.count_documents({}) == 0
+    assert "profile" not in store.catalog()
+    form = profile_form(csrf)
+    form.update(company_name="Mi empresa nueva", services="software")
+    assert client.post("/discover/confirm", data=form, headers=ORIGIN).status_code == 200
+    assert store.catalog()["profile"]["company_name"] == "Mi empresa nueva"
+    assert store.db.jobs.count_documents({}) == 0
+    assert "Mi empresa nueva" in client.get("/").text
+    edit = client.get("/company")
+    assert (
+        BeautifulSoup(edit.text, "html.parser").select_one("[name=company_name]")["value"]
+        == "Mi empresa nueva"
+    )
+    assert (
+        client.post(
+            "/company/draft",
+            data={
+                "csrf": csrf,
+                "revision": 0,
+                "company_name": "Otro nombre",
+            },
+            headers=ORIGIN,
+        ).status_code
+        == 409
+    )
+    assert (
+        client.post(
+            "/company/draft",
+            data={
+                "csrf": "forged",
+                "revision": 1,
+                "company_name": "Otro nombre",
+            },
+            headers=ORIGIN,
+        ).status_code
+        == 403
+    )
+
+
+def test_onboarding_html_errors_are_actionable(client, store):
+    csrf = authenticated(client, store)
+    response = client.post(
+        "/company/draft",
+        data={
+            "csrf": csrf,
+            "revision": 0,
+            "company_name": " ",
+        },
+        headers={**ORIGIN, "accept": "text/html"},
+    )
+    assert response.status_code == 422
+    assert "Volver al formulario" in response.text
+    assert "profile" not in store.catalog()
+
+
+@pytest.mark.parametrize(
+    ("sector", "specialty", "expected", "absent"),
+    [
+        ("sports", "goal_nets", "redes para arcos", "redes informáticas"),
+        ("technology", "networks", "redes informáticas", "redes para arcos"),
+        ("marketing", "social", "redes sociales", "redes informáticas"),
+    ],
+)
+def test_explicit_specialty_disambiguates_networks(
+    client, store, sector, specialty, expected, absent
+):
+    from bs4 import BeautifulSoup
+
+    csrf = authenticated(client, store)
+    result = client.post(
+        "/discover/draft",
+        data={
+            "csrf": csrf,
+            "revision": 0,
+            "activity": "Nuestra empresa ofrece redes",
+            "sector": sector,
+            "specialty": specialty,
+        },
+        headers=ORIGIN,
+    )
+    assert result.status_code == 200
+    terms = BeautifulSoup(result.text, "html.parser").select_one("[name=services]").text
+    assert expected in terms and absent not in terms
+    assert "profile" not in store.catalog()
+
+
+def test_specialty_must_belong_to_sector(client, store):
+    csrf = authenticated(client, store)
+    data = {
+        "csrf": csrf,
+        "revision": 0,
+        "activity": "Nuestra empresa ofrece redes",
+        "sector": "sports",
+        "specialty": "networks",
+    }
+    assert client.post("/discover/draft", data=data, headers=ORIGIN).status_code == 422
+    assert (
+        client.post(
+            "/discover/confirm",
+            data={**data, "services": "redes", "confirmed": "true"},
+            headers=ORIGIN,
+        ).status_code
+        == 422
+    )
+    assert "profile" not in store.catalog()

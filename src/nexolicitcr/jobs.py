@@ -13,7 +13,7 @@ from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from .matching import deadline_status
 from .models import JobPayload
-from .sicop import RUBROS, SicopClient, SourceError, source_date
+from .sicop import RUBROS, SicopClient, SourceError, SourceRateLimited, source_date
 from .storage import utcnow
 
 LOG = logging.getLogger(__name__)
@@ -50,7 +50,37 @@ class JobQueue:
             documents=documents,
             profile_revision=profile_revision,
         ).model_dump(exclude_none=True)
-        digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+        return self._insert(payload, idempotency_key)
+
+    def source_pause_until(self):
+        row = self.collection.find_one(
+            {"installation_id": self.scope, "source_retry_at": {"$gt": utcnow()}},
+            {"source_retry_at": 1},
+            sort=[("source_retry_at", -1)],
+        )
+        return row["source_retry_at"] if row else None
+
+    def resume(self, job_id):
+        previous = self.get(job_id)
+        if not previous:
+            raise LookupError("Consulta inexistente")
+        if previous["status"] not in {"failed", "canceled"}:
+            raise ValueError("Solo se pueden reanudar consultas interrumpidas")
+        return self._insert(previous["payload"], f"resume:{job_id}", previous)
+
+    def _insert(self, payload, idempotency_key, previous=None):
+        identity = {"payload": payload, "resume_of": previous["_id"]} if previous else payload
+        digest = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
+        checkpoints = sorted(set(previous.get("checkpoint", []))) if previous else []
+        pending = (
+            {
+                error["identity"]: error
+                for error in previous.get("errors", [])
+                if error["identity"] not in checkpoints
+            }
+            if previous
+            else {}
+        )
         row = {
             "_id": uuid4().hex,
             "installation_id": self.scope,
@@ -60,13 +90,15 @@ class JobQueue:
             "status": "queued",
             "created_at": utcnow(),
             "updated_at": utcnow(),
-            "next_attempt_at": utcnow(),
+            "next_attempt_at": self.source_pause_until() or utcnow(),
             "attempt": 0,
-            "checkpoint": [],
-            "progress": 0,
-            "errors": [],
+            "checkpoint": checkpoints,
+            "progress": len(checkpoints),
+            "errors": list(pending.values()),
             "cancel_requested": False,
         }
+        if previous:
+            row["resume_of"] = previous["_id"]
         try:
             self.collection.insert_one(row)
             return row
@@ -81,29 +113,72 @@ class JobQueue:
     def get(self, job_id):
         return self.collection.find_one({"_id": job_id, "installation_id": self.scope})
 
-    def claim(self, owner, job_id=None):
+    def maintain(self):
+        """Idempotent, scoped repairs. Never reclaim a valid lease or erase history."""
         now = utcnow()
-        # Expired final attempts are terminal, never left running forever.
-        self.collection.update_many(
+        abandoned = {
+            "status": "running",
+            "$or": [{"lease_until": {"$lte": now}}, {"lease_until": None}],
+        }
+        available = {"$or": [{"status": {"$in": ["queued", "retry_wait"]}}, abandoned]}
+        counts = {}
+
+        def repair(name, filters, values):
+            result = self.collection.update_many(
+                {"installation_id": self.scope, **filters},
+                {
+                    "$set": {
+                        **values,
+                        "updated_at": now,
+                        "maintenance_at": now,
+                        "maintenance_action": name,
+                    },
+                    "$unset": {"owner": "", "lease_token": "", "lease_until": ""},
+                },
+            )
+            counts[name] = result.modified_count
+
+        # Cancellation takes precedence even when the retry budget is exhausted.
+        repair(
+            "canceled",
+            {**available, "cancel_requested": True},
+            {"status": "canceled", "error_code": None},
+        )
+        repair(
+            "exhausted",
             {
-                "installation_id": self.scope,
-                "status": "running",
-                "lease_until": {"$lte": now},
+                **available,
+                "cancel_requested": {"$ne": True},
                 "attempt": {"$gte": self.settings.job_max_attempts},
             },
-            {"$set": {"status": "failed", "error_code": "LEASE_EXHAUSTED", "updated_at": now}},
+            {"status": "failed", "error_code": "LEASE_EXHAUSTED"},
         )
-        self.collection.update_many(
+        repair(
+            "recovered",
             {
-                "installation_id": self.scope,
-                "cancel_requested": True,
-                "$or": [
-                    {"status": {"$in": ["queued", "retry_wait"]}},
-                    {"status": "running", "lease_until": {"$lte": now}},
-                ],
+                **abandoned,
+                "cancel_requested": {"$ne": True},
+                "attempt": {"$lt": self.settings.job_max_attempts},
             },
-            {"$set": {"status": "canceled", "updated_at": now}},
+            {"status": "retry_wait", "next_attempt_at": now, "error_code": "WORKER_INTERRUPTED"},
         )
+        # Legacy/incomplete pending records must not wait forever without a date.
+        repair(
+            "scheduled",
+            {"status": {"$in": ["queued", "retry_wait"]}, "next_attempt_at": None},
+            {"next_attempt_at": now},
+        )
+        if any(counts.values()):
+            LOG.info(json.dumps({"stage": "queue_maintenance", "counts": counts}))
+        return counts
+
+    def claim(self, owner, job_id=None):
+        self.maintain()
+        now = utcnow()
+        if self.collection.find_one(
+            {"installation_id": self.scope, "source_retry_at": {"$gt": now}}, {"_id": 1}
+        ):
+            return None
         filters = {
             "installation_id": self.scope,
             "cancel_requested": False,
@@ -176,10 +251,14 @@ class JobQueue:
         if not self.collection.update_one(filters, update).matched_count:
             self.guard(job)
 
-    def finish(self, job, status, error=None):
+    def finish(self, job, status, error=None, retry_after=0):
         update = {"status": status, "updated_at": utcnow(), "error_code": error}
+        if error == "SOURCE_RATE_LIMITED":
+            update["source_retry_at"] = utcnow() + timedelta(seconds=retry_after)
         if status == "retry_wait":
-            update["next_attempt_at"] = utcnow() + timedelta(seconds=min(60, 2 ** job["attempt"]))
+            update["next_attempt_at"] = utcnow() + timedelta(
+                seconds=max(retry_after, min(60, 2 ** job["attempt"]))
+            )
         if not self.collection.update_one(
             self.owned(job), {"$set": update, "$unset": {"lease_token": "", "lease_until": ""}}
         ).matched_count:
@@ -211,13 +290,14 @@ def execute(queue, job, source=None):
 
     from .documents import DocumentService
 
-    client = source or SicopClient()
+    client = source or SicopClient(delay=queue.settings.sicop_request_delay_seconds)
     stop, lost = threading.Event(), threading.Event()
 
     def renew():
         while not stop.wait(queue.settings.job_lease_seconds / 3):
             try:
                 queue.heartbeat(job)
+                queue.maintain()
             except (LeaseLost, PyMongoError):
                 lost.set()
                 return
@@ -233,6 +313,18 @@ def execute(queue, job, source=None):
     try:
         payload = job["payload"]
         categories = list(RUBROS) if payload["category"] == "all" else [payload["category"]]
+        pending = {category: {} for category in categories}
+        for failure in job.get("errors", []):
+            identity = failure.get("identity", "")
+            if identity in job["checkpoint"]:
+                continue
+            parts = identity.split(":", 2)
+            if len(parts) == 3 and parts[0] in pending:
+                pending[parts[0]][identity] = {
+                    "cartelNo": parts[1],
+                    "cartelSeq": parts[2],
+                    "_revisit": True,
+                }
         for category in categories:
             processed = 0
             # Revisit oldest active/unknown records even outside the recent listing window.
@@ -248,7 +340,16 @@ def execute(queue, job, source=None):
                 if deadline_status(row["payload"]) not in {"closed", "canceled"}
             )
             seen = set()
-            for listing in chain(islice(active, payload["limit"]), client.listings(category)):
+
+            def candidates(current_category, active_records):
+                # Retry unfinished records before a moving listing can hide them.
+                # These are prior work; recent and active scan limits stay unchanged.
+                yield from chain(
+                    pending[current_category].values(), islice(active_records, payload["limit"])
+                )
+                yield from client.listings(current_category)
+
+            for listing in candidates(category, active):
                 guard()
                 published = source_date(listing.get("regDt"), queue.settings.sicop_timezone)
                 if (
@@ -276,6 +377,16 @@ def execute(queue, job, source=None):
                             if any(state in {"failed", "partial"} for state in states):
                                 raise SourceError("DOCUMENTS_PARTIAL")
                         queue.checkpoint(job, identity)
+                    except SourceRateLimited:
+                        queue.collection.update_one(
+                            queue.owned(job),
+                            {
+                                "$push": {
+                                    "errors": {"identity": identity, "code": "SOURCE_RATE_LIMITED"}
+                                }
+                            },
+                        )
+                        raise
                     except (SourceError, ValidationError):
                         errors += 1
                         queue.collection.update_one(
@@ -296,6 +407,16 @@ def execute(queue, job, source=None):
         LOG.info(json.dumps({"job_id": job["_id"], "stage": "complete", "errors": errors}))
     except LeaseLost:
         queue.acknowledge_cancel(job)
+    except SourceRateLimited as exc:
+        try:
+            queue.finish(
+                job,
+                "retry_wait" if job["attempt"] < queue.settings.job_max_attempts else "failed",
+                "SOURCE_RATE_LIMITED",
+                retry_after=min(86400, max(exc.retry_after, 300 * 2 ** (job["attempt"] - 1))),
+            )
+        except (LeaseLost, PyMongoError):
+            pass
     except (SourceError, PyMongoError):
         try:
             queue.finish(

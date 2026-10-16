@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% from '_guide.html' import header, help %}
+{% block title %}Tu empresa · NexoLicitCR{% endblock %}{% block body_class %}guided-workspace{% endblock %}
+{% block content %}{{ header(1) }}<div class="setup-wrap">
+<section class="setup-card"><div class="setup-icon" aria-hidden="true">◇</div><p class="step-label">EMPECEMOS POR VOS</p><h1>¿Cómo se llama<br>tu empresa?</h1><p class="setup-intro">El nombre que conocen tus clientes.<br>Lo demás, paso a paso.</p>
+<form action="/company/draft" method="post" data-setup-form><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="revision" value="{{ revision }}"><label for="company_name">Nombre comercial</label><input class="hero-input" id="company_name" name="company_name" value="{{ profile.company_name or '' }}" minlength="2" maxlength="160" autocomplete="organization" required aria-describedby="name-help" placeholder="Nombre de tu empresa"><p id="name-help" class="input-note">Solo el nombre. No necesitás cédula jurídica ni documentos.</p><button class="primary setup-primary">Continuar <span aria-hidden="true">→</span></button></form>
+<p class="setup-footnote">Tu perfil se guarda únicamente al confirmar el último paso.</p></section>{{ help() }}</div>{% endblock %}
