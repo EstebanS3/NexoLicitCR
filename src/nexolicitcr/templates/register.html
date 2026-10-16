@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Crear mi cuenta · NexoLicitCR{% endblock %}
+{% block content %}
+<div class="login-layout">
+  <section class="login-story">
+    <a class="brand" href="/login"><span class="brand-mark">N</span>NexoLicitCR</a>
+    <div class="orbit-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit-core">N</div><span class="orbit-point p1"></span><span class="orbit-point p2"></span></div>
+    <div class="story-copy"><p class="eyebrow">TU EMPRESA, TU ESPACIO</p><h1>El primer paso <br>lo elegís <br><em>vos.</em></h1><p>Creá tu acceso. Después te acompañamos a definir tu actividad y encontrar oportunidades.</p></div>
+    <span class="story-bottom">UNA EMPRESA POR INSTALACIÓN</span>
+  </section>
+  <section class="login-form-wrap">
+    {% if registration_open %}
+    <p class="eyebrow">EMPECEMOS POR TU ACCESO</p>
+    <h2>Creá tu cuenta.</h2>
+    <p class="muted">Elegí el usuario y la contraseña para administrar el espacio de tu empresa.</p>
+    {% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
+    <form method="post" action="/register" class="login-form">
+      <input type="hidden" name="csrf" value="{{ token }}">
+      <label for="username">Tu usuario</label>
+      <input id="username" name="username" value="{{ username }}" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="64" pattern="[a-z0-9][a-z0-9_.\-]{2,63}" aria-describedby="username-help" required placeholder="por.ejemplo.miempresa">
+      <small id="username-help">De 3 a 64 caracteres: letras minúsculas, números, punto, guion o guion bajo.</small>
+      <label for="password">Elegí tu contraseña</label>
+      <input id="password" name="password" type="password" autocomplete="new-password" minlength="14" maxlength="256" aria-describedby="password-help" required>
+      <small id="password-help">Al menos 14 caracteres. Podés usar una frase larga que recordés.</small>
+      <label for="password-confirm">Repetí tu contraseña</label>
+      <input id="password-confirm" name="password_confirm" type="password" autocomplete="new-password" minlength="14" maxlength="256" required>
+      <button class="primary">Crear mi cuenta <span aria-hidden="true">↗</span></button>
+    </form>
+    <p class="login-help">Este acceso será el administrador de esta instalación. El nombre y la actividad de tu empresa se configuran en el siguiente paso.</p>
+    <p class="login-help">¿Ya tenés cuenta? <a href="/login">Iniciar sesión →</a></p>
+    {% else %}
+    <p class="eyebrow">TU ESPACIO YA ESTÁ CONFIGURADO</p>
+    <h2>Esta instalación<br>ya tiene una cuenta.</h2>
+    <p class="muted">Ingresá con el usuario de tu empresa. El registro inicial se cierra al crear la primera cuenta.</p>
+    <a class="button primary" href="/login">Iniciar sesión →</a>
+    <p class="login-help">Cada empresa utiliza su propia instalación. Si necesitás recuperar el acceso, contactá a quien administra esta instalación.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

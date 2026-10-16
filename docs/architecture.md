@@ -6,7 +6,7 @@ Una empresa por instalación y **una base MongoDB exclusiva por instalación**. 
 
 | Colección | Identidad y finalidad |
 |---|---|
-| `users` | Administrador único, hash Argon2, estado activo. |
+| `users` | Administrador único por instalación, alta inicial web o CLI, hash Argon2 y estado activo. |
 | `sessions`, `login_tokens`, `login_limits` | Tokens hash y vencimientos; índices TTL. La aplicación comprueba expiración. |
 | `catalog` | `_id=company`, revisión monotónica, ítems embebidos con términos, exclusiones y capacidades. |
 | `tenders` | `_id=cartelNo:cartelSeq`, snapshot normalizado, hash y procedencia; importes decimales serializados como texto. |
