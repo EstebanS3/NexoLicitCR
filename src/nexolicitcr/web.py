@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Stre
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
-from pymongo.errors import PyMongoError
+from pymongo.errors import DuplicateKeyError, PyMongoError
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .cache import OptionalCache
@@ -20,7 +20,7 @@ from .jobs import JobQueue
 from .matching import Radar, deadline_status, normalized, score
 from .models import CatalogItem, CompanyProfile
 from .sectors import SECTORS, specialty_terms
-from .security import DUMMY_HASH, check_password, valid_username
+from .security import DUMMY_HASH, PASSWORDS, check_password, valid_username, validate_password
 from .storage import ConflictError, Store, connect, token_hash, utcnow
 
 ROOT = Path(__file__).parent
@@ -161,12 +161,19 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
             context={"cache_status": cache.status, "sectors": SECTORS, **context},
         )
 
-    def login_page(request, error="", status=200):
+    def login_page(request, error="", status=200, registered=False):
         nonce = secrets.token_urlsafe(32)
         store.db.login_tokens.insert_one(
             {"_id": token_hash(nonce), "expires_at": utcnow() + timedelta(minutes=15)}
         )
-        response = render(request, "login.html", token=nonce, error=error)
+        response = render(
+            request,
+            "login.html",
+            token=nonce,
+            error=error,
+            registration_open=store.registration_open(),
+            registered=registered,
+        )
         response.status_code = status
         response.set_cookie(
             "nexo_login",
@@ -176,6 +183,90 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
             secure=settings.secure_cookies,
             samesite="strict",
         )
+        return response
+
+    def registration_page(request, error="", username="", status=200):
+        opened = store.registration_open()
+        nonce = secrets.token_urlsafe(32) if opened else ""
+        if opened:
+            store.db.login_tokens.insert_one(
+                {
+                    "_id": token_hash("register:" + nonce),
+                    "expires_at": utcnow() + timedelta(minutes=15),
+                }
+            )
+        response = render(
+            request,
+            "register.html",
+            registration_open=opened,
+            token=nonce,
+            username=username,
+            error=error,
+        )
+        response.status_code = status
+        if opened:
+            response.set_cookie(
+                "nexo_register",
+                nonce,
+                max_age=900,
+                httponly=True,
+                secure=settings.secure_cookies,
+                samesite="strict",
+                path="/register",
+            )
+        else:
+            response.delete_cookie("nexo_register", path="/register")
+        return response
+
+    @app.get("/register", response_class=HTMLResponse)
+    def register_get(request: Request):
+        return registration_page(request)
+
+    @app.post("/register")
+    def register_post(
+        request: Request,
+        username: str = Form(max_length=64),
+        password: str = Form(max_length=256),
+        password_confirm: str = Form(max_length=256),
+        csrf: str = Form(max_length=128),
+    ):
+        if not store.registration_open():
+            return registration_page(request, status=409)
+        cookie = request.cookies.get("nexo_register", "")
+        if not cookie or not secrets.compare_digest(cookie.encode(), csrf.encode()):
+            return registration_page(
+                request, "El formulario no es válido. Intentá nuevamente.", status=403
+            )
+        nonce = store.db.login_tokens.find_one_and_delete(
+            {"_id": token_hash("register:" + cookie), "expires_at": {"$gt": utcnow()}}
+        )
+        if nonce is None:
+            return registration_page(
+                request, "El formulario venció. Intentá nuevamente.", status=403
+            )
+        address = request.client.host if request.client else "unknown"
+        if not store.login_allowed(address, "initial-registration"):
+            return registration_page(request, "Demasiados intentos. Intentá más tarde.", status=429)
+        username = username.strip().lower()
+        if not valid_username(username):
+            return registration_page(
+                request,
+                "Usá entre 3 y 64 caracteres: letras minúsculas, números, punto, guion o guion bajo.",
+                username,
+                422,
+            )
+        try:
+            validate_password(password)
+        except ValueError as exc:
+            return registration_page(request, str(exc), username, 422)
+        if not secrets.compare_digest(password.encode(), password_confirm.encode()):
+            return registration_page(request, "Las contraseñas no coinciden.", username, 422)
+        try:
+            store.create_admin(username, PASSWORDS.hash(password))
+        except DuplicateKeyError:
+            return registration_page(request, status=409)
+        response = RedirectResponse("/login?registered=1", status_code=303)
+        response.delete_cookie("nexo_register", path="/register")
         return response
 
     @app.get("/health/live")
@@ -194,6 +285,8 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
 
     @app.get("/", response_class=HTMLResponse)
     def home(request: Request):
+        if store.registration_open():
+            return registration_page(request)
         current = session(request)
         if not store.catalog().get("profile"):
             return render(request, "welcome.html", csrf=current["csrf"])
@@ -228,8 +321,8 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
         )
 
     @app.get("/login", response_class=HTMLResponse)
-    def login_get(request: Request):
-        return login_page(request)
+    def login_get(request: Request, registered: bool = False):
+        return login_page(request, registered=registered)
 
     @app.post("/login")
     def login_post(
