@@ -6,15 +6,20 @@ from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 from pymongo.errors import PyMongoError
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from .cache import OptionalCache
 from .config import Settings
-from .models import CatalogItem
+from .discovery import matching_catalog, suggest
+from .jobs import JobQueue
+from .matching import Radar, deadline_status, normalized, score
+from .models import CatalogItem, CompanyProfile
+from .sectors import SECTORS, specialty_terms
 from .security import DUMMY_HASH, check_password, valid_username
 from .storage import ConflictError, Store, connect, token_hash, utcnow
 
@@ -61,9 +66,14 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
         mongo = connect(settings)
         store = Store(mongo[settings.database_name])
 
+    cache = OptionalCache(settings)
+    radar = Radar(store, cache)
+    queue = JobQueue(store, settings)
+
     @asynccontextmanager
     async def lifespan(app):
         yield
+        cache.close()
         if mongo is not None:
             mongo.close()
 
@@ -91,7 +101,7 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
         else:
             response = await call_next(request)
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; script-src 'none'; style-src 'self'; img-src 'self'; "
+            "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; "
             "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
         )
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -102,21 +112,35 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
             response.headers["Strict-Transport-Security"] = "max-age=31536000"
         return response
 
+    def user_error(request, message, status_code):
+        if "text/html" in request.headers.get("accept", ""):
+            return TEMPLATES.TemplateResponse(
+                request=request,
+                name="form_error.html",
+                context={"message": message, "status_code": status_code},
+                status_code=status_code,
+            )
+        return JSONResponse({"detail": message}, status_code=status_code)
+
+    @app.exception_handler(HTTPException)
+    def http_error(request, exc):
+        if exc.status_code in {400, 403, 409, 422, 503}:
+            return user_error(request, str(exc.detail), exc.status_code)
+        return JSONResponse(
+            {"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers
+        )
+
     @app.exception_handler(RequestValidationError)
     def invalid_request(request, exc):
-        return JSONResponse(
-            {"detail": "Datos inválidos; revisá los campos del formulario."}, status_code=422
-        )
+        return user_error(request, "Datos inválidos; revisá los campos del formulario.", 422)
 
     @app.exception_handler(PyMongoError)
     def database_error(request, exc):
-        return JSONResponse(
-            {"detail": "Persistencia no disponible. Intentá nuevamente."}, status_code=503
-        )
+        return user_error(request, "Persistencia no disponible. Intentá nuevamente.", 503)
 
     @app.exception_handler(ConflictError)
     def conflict(request, exc):
-        return JSONResponse({"detail": str(exc)}, status_code=409)
+        return user_error(request, str(exc), 409)
 
     def session(request):
         value = store.session_get(request.cookies.get("nexo_session"))
@@ -131,7 +155,11 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
         return current
 
     def render(request, template, **context):
-        return TEMPLATES.TemplateResponse(request=request, name=template, context=context)
+        return TEMPLATES.TemplateResponse(
+            request=request,
+            name=template,
+            context={"cache_status": cache.status, "sectors": SECTORS, **context},
+        )
 
     def login_page(request, error="", status=200):
         nonce = secrets.token_urlsafe(32)
@@ -160,14 +188,44 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
         return {
             "mongodb": "available",
             "mongo_mode": settings.mongo_mode,
-            "cache": "unused",
+            "cache": cache.status,
             "redis_required": False,
         }
 
     @app.get("/", response_class=HTMLResponse)
     def home(request: Request):
         current = session(request)
-        return render(request, "home.html", csrf=current["csrf"])
+        if not store.catalog().get("profile"):
+            return render(request, "welcome.html", csrf=current["csrf"])
+        rows = radar.rows()
+        stats = {
+            "total": len(rows),
+            "relevant": sum(
+                r["match"]["score"] > 0 and r["current_status"] not in {"closed", "canceled"}
+                for r in rows
+            ),
+            "following": sum(r["decision"].get("status") == "following" for r in rows),
+            "catalog": sum(i["active"] for i in store.catalog()["items"]),
+        }
+        return render(
+            request,
+            "home.html",
+            csrf=current["csrf"],
+            stats=stats,
+            profile=store.catalog().get("profile"),
+            opportunities=[
+                r
+                for r in rows
+                if r["current_status"] not in {"closed", "canceled"}
+                and r["match"]["score"] > 0
+                and r["decision"].get("status") != "discarded"
+            ][:4],
+            recent_jobs=list(
+                store.db.jobs.find({"installation_id": settings.installation_id})
+                .sort("created_at", -1)
+                .limit(3)
+            ),
+        )
 
     @app.get("/login", response_class=HTMLResponse)
     def login_get(request: Request):
@@ -223,6 +281,256 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
         response = RedirectResponse("/login", status_code=303)
         response.delete_cookie("nexo_session")
         return response
+
+    @app.get("/company", response_class=HTMLResponse)
+    def company(request: Request):
+        current = session(request)
+        catalog = store.catalog()
+        return render(
+            request,
+            "company.html",
+            csrf=current["csrf"],
+            profile=catalog.get("profile") or {},
+            revision=catalog["revision"],
+        )
+
+    @app.post("/company/draft", response_class=HTMLResponse)
+    def company_draft(
+        request: Request,
+        csrf: str = Form(max_length=128),
+        revision: int = Form(ge=0),
+        company_name: str = Form(min_length=2, max_length=160),
+    ):
+        require_csrf(request, csrf)
+        if len(company_name.strip()) < 2:
+            raise HTTPException(422, "Escribí el nombre de tu empresa (al menos 2 caracteres).")
+        catalog = store.catalog()
+        if revision != catalog["revision"]:
+            raise ConflictError("El perfil cambió. Recargá antes de continuar.")
+        return render(
+            request,
+            "discover.html",
+            csrf=csrf,
+            revision=revision,
+            step=1,
+            profile={**(catalog.get("profile") or {}), "company_name": company_name.strip()},
+        )
+
+    @app.get("/discover", response_class=HTMLResponse)
+    def discover(request: Request):
+        current = session(request)
+        catalog = store.catalog()
+        return render(
+            request,
+            "discover.html",
+            csrf=current["csrf"],
+            profile=catalog.get("profile") or {},
+            revision=catalog["revision"],
+            step=1,
+        )
+
+    @app.post("/discover/draft", response_class=HTMLResponse)
+    def discover_draft(
+        request: Request,
+        csrf: str = Form(max_length=128),
+        revision: int = Form(ge=0),
+        activity: str = Form(default="", max_length=1000),
+        company_name: str = Form(default="", max_length=160),
+        sector: str = Form(default="", max_length=40),
+        specialty: str = Form(default="", max_length=40),
+        draft_services: str | None = Form(default=None, max_length=1000),
+        draft_coverage: str | None = Form(default=None, max_length=500),
+        draft_exclusions: str | None = Form(default=None, max_length=2100),
+        draft_category: str | None = Form(default=None, max_length=20),
+        draft_sector: str | None = Form(default=None, max_length=40),
+        draft_specialty: str | None = Form(default=None, max_length=40),
+    ):
+        require_csrf(request, csrf)
+        catalog = store.catalog()
+        if revision != catalog["revision"]:
+            raise ConflictError("El perfil cambió. Recargá antes de continuar.")
+        old = catalog.get("profile") or {}
+        try:
+            selected = specialty_terms(sector, specialty)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+        has_draft = any(
+            value is not None
+            for value in (
+                draft_services,
+                draft_coverage,
+                draft_exclusions,
+                draft_category,
+                draft_sector,
+                draft_specialty,
+            )
+        )
+        if has_draft:
+            try:
+                specialty_terms(draft_sector or "", draft_specialty or "")
+            except ValueError as exc:
+                raise HTTPException(422, str(exc)) from None
+            if draft_category not in {None, "all", "bienes", "servicios", "obras"}:
+                raise HTTPException(422, "Elegí un tipo de oportunidades válido.")
+        company_name = company_name.strip() or old.get("company_name", "")
+        same_specialty = sector == old.get("sector", "") and specialty == old.get("specialty", "")
+        activity = activity.strip()
+        if not activity and selected:
+            activity = (
+                old["activity"]
+                if same_specialty and old.get("activity")
+                else f"{company_name or 'La empresa'} ofrece "
+                f"{SECTORS[sector]['specialties'][specialty][0].lower()}."
+            )
+        if selected and activity and len(activity) < 12:
+            activity = (
+                f"{company_name or 'La empresa'} ofrece "
+                f"{SECTORS[sector]['specialties'][specialty][0].lower()}. "
+                f"Detalle: {activity}"
+            )
+        if len(activity) < 12:
+            raise HTTPException(
+                422,
+                "Describí tu actividad con al menos 12 caracteres o elegí una especialidad "
+                "de la lista. Para otra actividad, necesitamos esa descripción.",
+            )
+        services = (
+            old.get("services", [])
+            if activity == old.get("activity") and same_specialty
+            else selected
+            if selected is not None
+            else suggest(activity)
+        )
+        details = {}
+        if has_draft:
+            details = {
+                "coverage": draft_coverage or "",
+                "exclusions": [x.strip() for x in (draft_exclusions or "").split(",") if x.strip()],
+                "category": draft_category or "all",
+            }
+            if sector == (draft_sector or "") and specialty == (draft_specialty or ""):
+                services = [x.strip() for x in (draft_services or "").split(",") if x.strip()]
+        return render(
+            request,
+            "discover.html",
+            csrf=csrf,
+            revision=revision,
+            step=2,
+            profile={
+                **old,
+                **details,
+                "company_name": company_name,
+                "activity": activity,
+                "sector": sector,
+                "specialty": specialty,
+                "services": services,
+            },
+        )
+
+    @app.post("/discover/revise", response_class=HTMLResponse)
+    def discover_revise(
+        request: Request,
+        csrf: str = Form(max_length=128),
+        revision: int = Form(ge=0),
+        activity: str = Form(default="", max_length=1000),
+        services: str = Form(default="", max_length=1000),
+        coverage: str = Form(default="", max_length=500),
+        exclusions: str = Form(default="", max_length=2100),
+        category: str = Form(default="all", max_length=20),
+        company_name: str = Form(default="", max_length=160),
+        sector: str = Form(default="", max_length=40),
+        specialty: str = Form(default="", max_length=40),
+    ):
+        require_csrf(request, csrf)
+        if revision != store.catalog()["revision"]:
+            raise ConflictError("El perfil cambió. Recargá antes de continuar.")
+        try:
+            specialty_terms(sector, specialty)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+        if category not in {"all", "bienes", "servicios", "obras"}:
+            raise HTTPException(422, "Elegí un tipo de oportunidades válido.")
+        return render(
+            request,
+            "discover.html",
+            csrf=csrf,
+            revision=revision,
+            step=1,
+            profile={
+                "company_name": company_name.strip(),
+                "activity": activity,
+                "sector": sector,
+                "specialty": specialty,
+                "services": [x.strip() for x in services.split(",") if x.strip()],
+                "coverage": coverage,
+                "exclusions": [x.strip() for x in exclusions.split(",") if x.strip()],
+                "category": category,
+            },
+        )
+
+    @app.post("/discover/confirm")
+    def discover_confirm(
+        request: Request,
+        csrf: str = Form(max_length=128),
+        revision: int = Form(ge=0),
+        activity: str = Form(min_length=12, max_length=1000),
+        services: str = Form(max_length=1000),
+        coverage: str = Form(default="", max_length=500),
+        exclusions: str = Form(default="", max_length=2100),
+        category: str = Form(default="all"),
+        confirmed: bool = Form(default=False),
+        company_name: str = Form(default="", max_length=160),
+        sector: str = Form(default="", max_length=40),
+        specialty: str = Form(default="", max_length=40),
+    ):
+        require_csrf(request, csrf)
+        if not confirmed:
+            raise HTTPException(422, "Confirmá que el perfil describe lo que ofrece tu empresa.")
+        try:
+            profile = CompanyProfile(
+                company_name=company_name.strip(),
+                sector=sector,
+                specialty=specialty,
+                activity=activity,
+                services=[x.strip() for x in services.split(",") if x.strip()],
+                coverage=coverage,
+                exclusions=[x.strip() for x in exclusions.split(",") if x.strip()],
+                category=category,
+            )
+        except ValueError:
+            raise HTTPException(
+                422, "Revisá el perfil: entre 1 y 8 servicios, de hasta 100 caracteres cada uno."
+            ) from None
+        store.save_profile(profile, revision)
+        return RedirectResponse("/opportunities?minimum=1", status_code=303)
+
+    @app.post("/discover/search")
+    def discover_search(
+        request: Request,
+        csrf: str = Form(max_length=128),
+        revision: int = Form(ge=0),
+        idempotency_key: str = Form(min_length=1, max_length=128),
+        limit: int = Form(default=25, ge=10, le=100),
+    ):
+        require_csrf(request, csrf)
+        catalog = store.catalog()
+        if not catalog.get("profile") or catalog["revision"] != revision:
+            raise HTTPException(409, "El perfil cambió. Recargá antes de actualizar la búsqueda.")
+        try:
+            job = queue.enqueue(
+                catalog["profile"]["category"],
+                limit,
+                "",
+                idempotency_key,
+                profile_revision=revision,
+            )
+        except ValueError:
+            raise HTTPException(
+                409,
+                "Esta solicitud corresponde a otro perfil o alcance. "
+                "Recargá para iniciar una nueva consulta.",
+            ) from None
+        return RedirectResponse(f"/jobs/{job['_id']}/view", status_code=303)
 
     @app.get("/catalog", response_class=HTMLResponse)
     def catalog_get(request: Request, edit: str = ""):
@@ -301,7 +609,247 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
         if not tender:
             raise HTTPException(404, "Concurso inexistente")
         return render(
-            request, "tender.html", csrf=current["csrf"], record=tender, tender=tender["payload"]
+            request,
+            "tender.html",
+            csrf=current["csrf"],
+            record=tender,
+            tender=tender["payload"],
+            current_status=deadline_status(tender["payload"]),
+            match=score(
+                tender["payload"],
+                matching_catalog(store.catalog()),
+                list(
+                    store.db.extracted_pages.find(
+                        {
+                            "document_id": {
+                                "$in": store.db.documents.distinct(
+                                    "_id",
+                                    {
+                                        "tender_key": key,
+                                        "current": True,
+                                        "state": {"$in": ["ready", "partial"]},
+                                    },
+                                )
+                            }
+                        }
+                    )
+                ),
+            ),
+            documents=list(store.db.documents.find({"tender_key": key})),
+            offers=list(store.db.offers.find({"tender_key": key}).sort("fetched_at", -1).limit(50)),
+            decision=store.db.decisions.find_one({"company": "company", "tender_key": key}) or {},
+        )
+
+    @app.get("/opportunities", response_class=HTMLResponse)
+    def opportunities(
+        request: Request,
+        status: str = "active",
+        q: str = "",
+        minimum: int | None = None,
+        page: int = 1,
+        category: str = "all",
+    ):
+        current = session(request)
+        if (
+            status not in {"active", "all", "following", "discarded", "unknown", "closed"}
+            or category not in {"all", "bienes", "servicios", "obras"}
+            or len(q) > 120
+            or minimum is not None
+            and not 0 <= minimum <= 100
+            or not 1 <= page <= 1000
+        ):
+            raise HTTPException(422, "Filtros inválidos")
+        catalog = store.catalog()
+        if minimum is None:
+            minimum = 1 if catalog.get("profile") and status == "active" else 0
+        rows = radar.rows()
+        filtered = [
+            r
+            for r in rows
+            if r["match"]["score"] >= minimum
+            and (category == "all" or r["tender"]["category"] == category)
+            and normalized(q) in normalized(r["tender"]["title"] + " " + r["tender"]["institution"])
+            and (
+                status == "all"
+                or status == "active"
+                and r["current_status"] not in {"closed", "canceled"}
+                and r["decision"].get("status") != "discarded"
+                or status in {"following", "discarded"}
+                and r["decision"].get("status") == status
+                or status in {"unknown", "closed"}
+                and r["current_status"] == status
+            )
+        ]
+        catalog = store.catalog()
+        return render(
+            request,
+            "opportunities.html",
+            profile=catalog.get("profile"),
+            search_key=secrets.token_urlsafe(24),
+            profile_revision=catalog["revision"],
+            search_limit_default=25,
+            first_search=not rows
+            and not store.db.jobs.find_one({"installation_id": settings.installation_id}),
+            has_saved_tenders=bool(rows),
+            csrf=current["csrf"],
+            rows=filtered[(page - 1) * 25 : page * 25],
+            total=len(filtered),
+            page=page,
+            status=status,
+            category=category,
+            q=q,
+            minimum=minimum,
+        )
+
+    @app.post("/decisions/{key}")
+    def decision_post(
+        request: Request,
+        key: str,
+        csrf: str = Form(max_length=128),
+        status: str = Form(max_length=20),
+        note: str = Form(default="", max_length=2000),
+    ):
+        require_csrf(request, csrf)
+        try:
+            radar.decide(key, status, note)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+        return RedirectResponse(f"/tenders/{key}", status_code=303)
+
+    @app.get("/jobs", response_class=HTMLResponse)
+    def jobs_get(request: Request):
+        current = session(request)
+        return render(
+            request,
+            "jobs.html",
+            csrf=current["csrf"],
+            source_pause_until=queue.source_pause_until(),
+            jobs=list(
+                store.db.jobs.find({"installation_id": settings.installation_id})
+                .sort("created_at", -1)
+                .limit(50)
+            ),
+            idempotency_key=secrets.token_urlsafe(24),
+        )
+
+    @app.post("/sync-runs")
+    def sync_post(
+        request: Request,
+        csrf: str = Form(max_length=128),
+        category: str = Form(default="all"),
+        limit: int = Form(default=10, ge=1, le=500),
+        since: str = Form(default="", max_length=10),
+        idempotency_key: str = Form(min_length=1, max_length=128),
+        documents: bool = Form(default=False),
+    ):
+        require_csrf(request, csrf)
+        try:
+            job = queue.enqueue(category, limit, since, idempotency_key, documents)
+        except ValueError:
+            raise HTTPException(422, "Filtros o clave de idempotencia inválidos") from None
+        if "text/html" in request.headers.get("accept", ""):
+            return RedirectResponse(f"/jobs/{job['_id']}/view", status_code=303)
+        return JSONResponse(
+            {"job_id": job["_id"], "status": job["status"], "url": f"/jobs/{job['_id']}/view"},
+            status_code=202,
+        )
+
+    @app.get("/jobs/{job_id}")
+    def job_status(request: Request, job_id: str):
+        session(request)
+        job = queue.get(job_id)
+        if not job:
+            raise HTTPException(404, "Trabajo inexistente")
+        result = {
+            key: job.get(key)
+            for key in (
+                "_id",
+                "status",
+                "progress",
+                "attempt",
+                "error_code",
+                "cancel_requested",
+                "next_attempt_at",
+                "errors",
+            )
+        }
+        result["source_pause_until"] = queue.source_pause_until()
+        result["pending_count"] = len(
+            {e["identity"] for e in job.get("errors", [])} - set(job.get("checkpoint", []))
+        )
+        return result
+
+    @app.post("/jobs/{job_id}/resume")
+    def job_resume(request: Request, job_id: str, csrf: str = Form(max_length=128)):
+        require_csrf(request, csrf)
+        try:
+            resumed = queue.resume(job_id)
+        except LookupError:
+            raise HTTPException(404, "Consulta inexistente") from None
+        except ValueError:
+            raise HTTPException(409, "Solo se pueden reanudar consultas interrumpidas") from None
+        return RedirectResponse(f"/jobs/{resumed['_id']}/view", status_code=303)
+
+    @app.get("/jobs/{job_id}/view", response_class=HTMLResponse)
+    def job_view(request: Request, job_id: str):
+        current = session(request)
+        job = queue.get(job_id)
+        if not job:
+            raise HTTPException(404, "Trabajo inexistente")
+        return render(
+            request,
+            "job.html",
+            csrf=current["csrf"],
+            job=job,
+            source_pause_until=queue.source_pause_until(),
+            pending_count=len(
+                {e["identity"] for e in job.get("errors", [])} - set(job.get("checkpoint", []))
+            ),
+        )
+
+    @app.post("/jobs/{job_id}/cancel")
+    def job_cancel(request: Request, job_id: str, csrf: str = Form(max_length=128)):
+        require_csrf(request, csrf)
+        if not queue.get(job_id):
+            raise HTTPException(404)
+        queue.cancel(job_id)
+        return RedirectResponse(f"/jobs/{job_id}/view", status_code=303)
+
+    @app.get("/documents/{document_id}", response_class=HTMLResponse)
+    def document_view(request: Request, document_id: str):
+        current = session(request)
+        document = store.db.documents.find_one({"_id": document_id})
+        if not document:
+            raise HTTPException(404)
+        return render(
+            request,
+            "document.html",
+            csrf=current["csrf"],
+            document=document,
+            pages=list(store.db.extracted_pages.find({"document_id": document_id}).sort("page", 1)),
+        )
+
+    @app.get("/documents/{document_id}/download")
+    def document_download(request: Request, document_id: str):
+        session(request)
+        import gridfs
+
+        document = store.db.documents.find_one({"_id": document_id})
+        if not document or not document.get("gridfs_id"):
+            raise HTTPException(404)
+        fs = gridfs.GridFS(store.db)
+        if not fs.exists(document["gridfs_id"]):
+            raise HTTPException(404)
+
+        def chunks():
+            with fs.get(document["gridfs_id"]) as stream:
+                while chunk := stream.read(65536):
+                    yield chunk
+
+        return StreamingResponse(
+            chunks(),
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": 'attachment; filename="documento.bin"'},
         )
 
     return app

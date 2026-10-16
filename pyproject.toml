@@ -12,6 +12,7 @@ dependencies = [
   "pydantic-settings>=2.8,<3", "pymongo>=4.12,<5", "httpx>=0.28,<1",
   "beautifulsoup4>=4.13,<5", "pwdlib[argon2]>=0.2,<1",
   "python-multipart>=0.0.20,<1", "typer>=0.15,<1",
+  "redis>=5,<7", "pypdf>=6,<7", "Pillow>=11,<13",
 ]
 [project.scripts]
 nexolicit = "nexolicitcr.cli:app"
