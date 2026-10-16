@@ -49,13 +49,14 @@ Completar `.env` localmente:
 
 ```bash
 uv run nexolicit init-db
-uv run nexolicit create-admin
 uv run nexolicit api
 ```
 
 En modo local, `nexolicit api` arranca también el worker; no requiere otra terminal. Para gestionarlo por separado: `nexolicit api --no-worker`.
 
-Abrir `http://localhost:8000`. Crear administrador solicita la contraseña por entrada oculta (14–256 caracteres), sin contraseña predeterminada. Solo permite un administrador; no reemplaza cuentas existentes. Inicializar índices es idempotente y no borra colecciones. Mantener credenciales y copias de seguridad fuera de Git.
+En una instalación nueva, abrir `http://localhost:8000`: si no hay cuenta, la página inicial muestra directamente el registro y la empresa elige su usuario y contraseña (14–256 caracteres), inicia sesión y configura su actividad. El registro se cierra al crear la primera cuenta, incluso si después se desactiva; no hay registro adicional ni reinicio de credenciales desde ese formulario.
+
+Como alternativa para quien administra el servidor, `uv run nexolicit create-admin` solicita la contraseña por entrada oculta (14–256 caracteres), sin contraseña predeterminada. Solo permite un administrador; no reemplaza cuentas existentes. Inicializar índices es idempotente y no borra colecciones. Mantener credenciales y copias de seguridad fuera de Git.
 
 Para servidor: configurar `APP_MODE=server`, origen HTTPS y un proxy TLS que preserve el Host; exponer exclusivamente el proxy y restringir el puerto del backend. El servidor no confía automáticamente en cabeceras reenviadas. Este repositorio no provisiona Atlas ni despliega servicios públicos.
 

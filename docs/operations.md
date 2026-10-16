@@ -5,8 +5,9 @@
 ```bash
 uv sync --frozen
 uv run nexolicit init-db
-uv run nexolicit create-admin
 uv run nexolicit api
+# Primera cuenta desde /register, o por CLI antes del registro web:
+# uv run nexolicit create-admin
 # En local, api inicia y supervisa su propio worker. Para gestionarlo aparte:
 uv run nexolicit api --no-worker
 uv run nexolicit worker
@@ -133,3 +134,24 @@ protege también las consultas nuevas aunque el trabajo agote sus intentos.
 La pantalla de Actividad informa de la pausa general y el detalle muestra la
 hora del siguiente intento en la zona horaria del navegador. Estos controles
 reducen solicitudes y conservan avances; no garantizan que SICOP retire un bloqueo.
+
+
+### Registro inicial de la empresa
+
+Una instalación nueva y sin usuarios muestra el formulario de registro directamente
+en `GET /`, ofrece «Crear mi cuenta» en el login y mantiene `GET /register`.
+Si ya existe cuenta, `GET /` requiere iniciar sesión y conserva el recorrido habitual. La empresa elige usuario, contraseña de 14–256 caracteres y
+confirmación. Se reutiliza el administrador único existente: `_id`, `username`,
+`password_hash` Argon2 y `active`, sin campos, colecciones ni índices nuevos.
+Después de registrar debe iniciar sesión y configurar su empresa; el formulario
+no genera sesiones, perfiles, catálogos de ejemplo ni trabajos SICOP.
+
+La primera cuenta cierra el registro, incluso si se desactiva después. GET muestra
+una explicación y POST devuelve 409. La clave fija de administrador protege
+creaciones concurrentes por CLI y web. La validación utiliza origen exacto,
+cookie CSRF HttpOnly/SameSite, nonce de un solo uso con vencimiento y espacio de
+claves separado del login, límites de intentos y errores sin contraseñas.
+
+Una empresa distinta requiere otra instalación y base exclusiva. Este registro
+inicial no incorpora recuperación de contraseña ni cuentas adicionales. El alta
+CLI sigue disponible y no reemplaza una cuenta existente.

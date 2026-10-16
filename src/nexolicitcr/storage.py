@@ -91,6 +91,10 @@ class Store:
             upsert=True,
         )
 
+    def registration_open(self):
+        # Disabled accounts still own the installation; registration never resets access.
+        return self.db.users.find_one({}, {"_id": 1}) is None
+
     def create_admin(self, username, password_hash):
         # A fixed key guarantees that two concurrent bootstrap commands cannot create two admins.
         self.db.users.insert_one(
