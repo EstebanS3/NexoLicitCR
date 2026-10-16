@@ -122,3 +122,32 @@ def test_retries_are_bounded():
     with pytest.raises(SourceError):
         api(handler).post("/test", {})
     assert len(calls) == 3
+
+
+@pytest.mark.parametrize(
+    "header,expected",
+    [("180", 180), ("0", 60), ("invalid", 300), (None, 300), ("999999999", 86400)],
+)
+def test_rate_limit_stops_requests_and_preserves_retry_after(header, expected):
+    from nexolicitcr.sicop import SourceRateLimited
+
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(429, headers={"Retry-After": header} if header else {})
+
+    with pytest.raises(SourceRateLimited) as error:
+        api(handler).post("/test", {})
+    assert error.value.retry_after == expected
+    assert len(calls) == 1
+
+
+def test_retry_after_http_date():
+    from datetime import UTC, datetime, timedelta
+    from email.utils import format_datetime
+
+    from nexolicitcr.sicop import retry_after_seconds
+
+    value = format_datetime(datetime.now(UTC) + timedelta(seconds=180), usegmt=True)
+    assert 179 <= retry_after_seconds(value) <= 180

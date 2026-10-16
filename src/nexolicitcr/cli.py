@@ -1,14 +1,13 @@
 import getpass
-from datetime import date
+from contextlib import nullcontext
 
 import typer
 from pydantic import ValidationError
 from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from .config import Settings
-from .ingestion import sync as synchronize
 from .security import PASSWORDS, valid_username, validate_password
-from .sicop import RUBROS, SicopClient, SourceError
+from .sicop import SourceError
 from .storage import Store, connect
 
 app = typer.Typer(help="NexoLicitCR: web, catálogo e ingesta de SICOP.")
@@ -68,20 +67,29 @@ def create_admin():
 
 
 @app.command()
-def api(port: int = typer.Option(8000, min=1024, max=65535)):
+def api(
+    port: int = typer.Option(8000, min=1024, max=65535),
+    with_worker: bool = typer.Option(
+        True,
+        "--worker/--no-worker",
+        help="Worker automático en modo local; servidor usa su worker separado.",
+    ),
+):
     """Iniciar web; server requiere TLS en un proxy de confianza."""
     import uvicorn
 
+    from .runtime import local_worker
     from .web import create_app
 
     cfg = settings()
-    uvicorn.run(
-        create_app(cfg),
-        host="127.0.0.1" if cfg.app_mode == "local" else "0.0.0.0",  # noqa: S104
-        port=port,
-        proxy_headers=False,
-        access_log=False,
-    )
+    with local_worker() if cfg.app_mode == "local" and with_worker else nullcontext():
+        uvicorn.run(
+            create_app(cfg),
+            host="127.0.0.1" if cfg.app_mode == "local" else "0.0.0.0",  # noqa: S104
+            port=port,
+            proxy_headers=False,
+            access_log=False,
+        )
 
 
 @app.command()
@@ -89,35 +97,109 @@ def sync(
     category: str = typer.Option("bienes"),
     limit: int = typer.Option(20, min=1, max=500),
     since: str = typer.Option(""),
+    once: bool = typer.Option(False, "--once"),
+    documents: bool = typer.Option(False, "--documents"),
 ):
-    """Corrida manual acotada. category=all consulta los tres rubros."""
-    categories = list(RUBROS) if category == "all" else [category]
-    if any(x not in RUBROS for x in categories):
-        raise typer.BadParameter("Usá bienes, obras, servicios o all")
-    try:
-        start = date.fromisoformat(since) if since else None
-    except ValueError:
-        raise typer.BadParameter("since debe ser AAAA-MM-DD") from None
+    """Crear un job durable; --once procesa un intento en este proceso."""
+    from uuid import uuid4
+
+    from .jobs import JobQueue, execute
 
     def run(store, cfg):
-        client = SicopClient()
+        queue = JobQueue(store, cfg)
         try:
-            return synchronize(store, client, categories, limit, start, cfg.sicop_timezone)
-        finally:
-            client.close()
+            job = queue.enqueue(category, limit, since, uuid4().hex, documents)
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc)) from None
+        typer.echo(f"Job: {job['_id']}")
+        if once:
+            claimed = queue.claim("cli", job["_id"])
+            if claimed:
+                job = execute(queue, claimed)
+            else:
+                job = queue.get(job["_id"])
+            typer.echo(f"Estado: {job['status']}")
+            if job["status"] != "succeeded":
+                raise typer.Exit(1)
+
+    db_action(run)
+
+
+@app.command()
+def resume(job_id: str):
+    """Reanudar una consulta fallida/cancelada conservando progreso y filtros."""
+    from .jobs import JobQueue
+
+    def run(store, cfg):
+        try:
+            job = JobQueue(store, cfg).resume(job_id)
+        except (LookupError, ValueError) as exc:
+            raise typer.BadParameter(str(exc)) from None
+        typer.echo(f"Job: {job['_id']} · Estado: {job['status']}")
+
+    db_action(run)
+
+
+@app.command()
+def worker(once: bool = typer.Option(False, "--once")):
+    """Procesar jobs de INSTALLATION_ID; Ctrl+C termina sin perder la cola."""
+    import logging
+    import time
+    from uuid import uuid4
+
+    from .jobs import JobQueue, execute
+
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+
+    def run(store, cfg):
+        queue, owner = JobQueue(store, cfg), uuid4().hex
+        try:
+            while True:
+                try:
+                    job = queue.claim(owner)
+                    result = execute(queue, job) if job else None
+                except PyMongoError:
+                    if once:
+                        raise
+                    logging.getLogger(__name__).warning(
+                        "MongoDB no disponible; la cola se retomará automáticamente."
+                    )
+                    time.sleep(max(2, cfg.worker_poll_seconds))
+                    continue
+                if once:
+                    if result and result["status"] != "succeeded":
+                        raise typer.Exit(1)
+                    return
+                if not job:
+                    time.sleep(cfg.worker_poll_seconds)
+        except KeyboardInterrupt:
+            return
+
+    db_action(run)
+
+
+@app.command("import-offers")
+def offers(tender_key: str, lot: str = "1"):
+    """Consultar una partida pública; precios presentados, nunca adjudicados."""
+    from .history import import_offers
 
     try:
-        result = db_action(run)
-    except SourceError as exc:
+        count = db_action(lambda store, cfg: import_offers(store, tender_key, lot))
+        typer.echo(f"Ofertas registradas: {count}")
+    except (SourceError, ValueError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1) from None
-    typer.echo(
-        f"Corrida {result['run_id']}: {result['status']}; "
-        f"actualizados={result['changed']}, sin cambios={result['unchanged']}, "
-        f"errores={result['errors']}. Consulta acotada por rubro."
-    )
-    if result["errors"]:
-        raise typer.Exit(1)
+
+
+@app.command("document-orphans")
+def document_orphans():
+    """Reportar candidatos huérfanos de GridFS sin borrar datos."""
+    import json
+
+    from .documents import DocumentService
+
+    result = db_action(lambda store, cfg: DocumentService(store, cfg).orphan_report())
+    typer.echo(json.dumps(result))
 
 
 if __name__ == "__main__":

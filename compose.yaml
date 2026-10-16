@@ -1,0 +1,37 @@
+name: nexolicitcr
+x-app: &app
+  build: .
+  env_file: .env
+  environment:
+    APP_MODE: server
+    MONGO_MODE: atlas
+  init: true
+  restart: unless-stopped
+  read_only: true
+  tmpfs:
+    - /tmp:size=64m,mode=1777
+    - /app/var:size=256m,uid=10001,gid=10001,mode=0700
+  security_opt:
+    - no-new-privileges:true
+  cap_drop: [ALL]
+  mem_limit: 1536m
+  cpus: 2
+services:
+  web:
+    <<: *app
+    ports: ["127.0.0.1:8000:8000"]
+    command: ["/app/.venv/bin/nexolicit", "api"]
+  worker:
+    <<: *app
+    command: ["/app/.venv/bin/nexolicit", "worker"]
+  redis:
+    image: redis:7.4-alpine
+    profiles: [cache]
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/data]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    user: redis
+    mem_limit: 192m
