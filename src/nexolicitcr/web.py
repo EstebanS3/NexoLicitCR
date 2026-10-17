@@ -124,7 +124,8 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
 
     @app.exception_handler(HTTPException)
     def http_error(request, exc):
-        if exc.status_code in {400, 403, 409, 422, 503}:
+        # 404 también: un navegador nunca debe recibir JSON crudo; las APIs siguen en JSON.
+        if exc.status_code in {400, 403, 404, 409, 422, 503}:
             return user_error(request, str(exc.detail), exc.status_code)
         return JSONResponse(
             {"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers
