@@ -262,7 +262,10 @@ class DocumentService:
                     try:
                         code = process.wait(timeout=self.settings.extraction_timeout_seconds)
                     except subprocess.TimeoutExpired:
-                        os.killpg(process.pid, signal.SIGKILL)
+                        if hasattr(os, "killpg"):
+                            os.killpg(process.pid, signal.SIGKILL)
+                        else:
+                            process.kill()
                         process.wait()
                         raise
                     if code:
