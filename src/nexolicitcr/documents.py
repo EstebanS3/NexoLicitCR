@@ -18,7 +18,7 @@ import httpx
 from gridfs.errors import FileExists
 
 from .models import Document, ExtractionPage
-from .sicop import BASE, SourceError
+from .sicop import BASE, HEADERS, SourceError
 from .storage import utcnow
 
 
@@ -95,12 +95,7 @@ def metadata_get(path, params, text=False):
             "GET",
             BASE + path,
             params=params,
-            headers={
-                "Origin": "https://www.sicop.go.cr",
-                "Referer": "https://www.sicop.go.cr/",
-                "Accept": "application/json",
-                "User-Agent": "Mozilla/5.0",
-            },
+            headers=HEADERS,
         ) as response:
             if response.status_code != 200 or (
                 not text and "json" not in response.headers.get("content-type", "")

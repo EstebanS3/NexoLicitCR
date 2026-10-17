@@ -14,6 +14,18 @@ from .models import SourceDate, Tender, TenderLine
 BASE = "https://prod-api.sicop.go.cr"
 RUBROS = {"bienes": "1", "obras": "3", "servicios": "5"}
 RETRY = {429, 500, 502, 503, 504}
+# El firewall de SICOP responde una página de bloqueo (200, text/plain) a un User-Agent
+# incompleto como "Mozilla/5.0"; todas las consultas deben parecer de navegador.
+HEADERS = {
+    "Origin": "https://www.sicop.go.cr",
+    "Referer": "https://www.sicop.go.cr/",
+    "Accept": "application/json, text/plain, */*",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/126.0 Safari/537.36"
+    ),
+}
 
 
 class SourceError(Exception):
@@ -176,17 +188,7 @@ class SicopClient:
                     "POST",
                     BASE + path,
                     json=payload,
-                    headers={
-                        "Origin": "https://www.sicop.go.cr",
-                        "Referer": "https://www.sicop.go.cr/",
-                        "Accept": "application/json, text/plain, */*",
-                        "Content-Type": "application/json",
-                        "User-Agent": (
-                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                            "AppleWebKit/537.36 (KHTML, like Gecko) "
-                            "Chrome/126.0 Safari/537.36"
-                        ),
-                    },
+                    headers={**HEADERS, "Content-Type": "application/json"},
                 ) as response:
                     if response.status_code == 429:
                         raise SourceRateLimited(
