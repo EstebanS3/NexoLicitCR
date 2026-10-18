@@ -40,8 +40,10 @@ class Settings(BaseSettings):
     document_max_pages: int = Field(default=30, ge=1, le=100)
     document_max_files: int = Field(default=5, ge=1, le=20)
     extraction_timeout_seconds: int = Field(default=120, ge=5, le=600)
-    # Exact hosts only. Enable Oracle hosts only after checking source provenance.
-    document_hosts: str = "www.sicop.go.cr,prod-api.sicop.go.cr"
+    # Oracle source provenance verified in docs/source-validation.md.
+    document_hosts: str = (
+        "www.sicop.go.cr,prod-api.sicop.go.cr,objectstorage.us-ashburn-1.oraclecloud.com"
+    )
     session_hours: int = Field(default=8, ge=1, le=24)
 
     @model_validator(mode="after")

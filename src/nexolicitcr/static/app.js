@@ -83,69 +83,75 @@ if (job) {
 document.querySelectorAll('[data-go-back]').forEach(button => button.addEventListener('click', () => {
   if (history.length > 1) history.back(); else location.assign('/company');
 }));
-// Dependent native selects; without JS every labeled choice remains available.
-const sectorSelect = document.querySelector('[data-sector]');
-const specialtySelect = document.querySelector('[data-specialty]');
-if (sectorSelect && specialtySelect) {
-  const groups = Array.from(specialtySelect.querySelectorAll('optgroup')).map(group => group.cloneNode(true));
-  const flow = document.querySelector('[data-specialty-flow]');
-  const activity = document.querySelector('#activity');
-  const activityDetails = document.querySelector('[data-activity-details]');
-  let activityEdited = false;
-  activity.addEventListener('input', () => { activityEdited = true; });
-  const discardStaleDescription = () => { if (!activityEdited) activity.value = ''; };
-  const updateActivity = () => {
-    const custom = specialtySelect.value === 'custom';
+// Native checkboxes remain usable without JavaScript, across all sectors.
+const flow = document.querySelector('[data-specialty-flow]');
+if (flow) {
+  const sector = flow.querySelector('[data-sector]');
+  const groups = [...flow.querySelectorAll('[data-sector-group]')];
+  const choices = [...flow.querySelectorAll('[name=specialties]')];
+  const panels = [...flow.querySelectorAll('[data-choice-panel]')];
+  const activity = flow.querySelector('[name=activity]');
+  const detail = flow.querySelector('[data-activity-details]');
+  const next = flow.querySelector('[data-next-choice]');
+  const previous = flow.querySelector('[data-previous-choice]');
+  const all = flow.querySelector('[data-show-all]');
+  let edited = false;
+  activity.addEventListener('input', () => { edited = true; });
+  const update = () => {
+    const selected = choices.filter(choice => choice.checked);
+    flow.querySelector('[data-selection-count]').textContent = `${selected.length} de 8 especialidades seleccionadas.`;
+    choices.forEach(choice => {
+      choice.disabled = !choice.checked && selected.length >= 8;
+      choice.setCustomValidity('');
+      if (choice.checked) choice.closest('details').open = true;
+    });
+    const custom = selected.some(choice => choice.value === 'other:custom');
     activity.required = custom;
     activity.minLength = custom ? 12 : 0;
-    if (custom) activityDetails.open = true;
-    document.querySelector('[data-activity-summary]').firstChild.textContent = custom ? 'Describí tu especialidad ' : 'Agregar un detalle ';
+    if (custom) detail.open = true;
   };
-  const updateSpecialties = (preserve) => {
-    const selected = preserve ? specialtySelect.value : '';
-    specialtySelect.replaceChildren(new Option('Elegí tu especialidad', ''));
-    groups.filter(group => group.dataset.sectorGroup === sectorSelect.value).forEach(group => specialtySelect.append(group.cloneNode(true)));
-    specialtySelect.value = selected;
-    specialtySelect.disabled = !sectorSelect.value;
-    const label = sectorSelect.selectedOptions[0]?.textContent || 'Tu especialidad';
-    document.querySelector('[data-sector-caption]').textContent = label;
-    document.querySelector('#specialty-help').textContent = sectorSelect.value ? 'Elegí lo que mejor describe tu actividad principal.' : 'Elegí primero un sector para ver sus especialidades.';
-    updateActivity();
-  };
-  sectorSelect.addEventListener('change', () => { discardStaleDescription(); updateSpecialties(false); });
-  specialtySelect.addEventListener('change', () => { discardStaleDescription(); updateActivity(); });
-  updateSpecialties(true);
-  if (flow) {
-    const panels = Array.from(flow.querySelectorAll('[data-choice-panel]'));
-    const next = flow.querySelector('[data-next-choice]');
-    const previous = flow.querySelector('[data-previous-choice]');
-    const show = (name, focus = true) => {
-      panels.forEach(panel => { panel.hidden = panel.dataset.choicePanel !== name; });
-      document.querySelectorAll('[data-progress-step]').forEach(item => {
-        const number = Number(item.dataset.progressStep);
-        const current = name === 'sector' ? 2 : 3;
-        item.classList.toggle('is-complete', number < current);
-        if (number === current) item.setAttribute('aria-current', 'step'); else item.removeAttribute('aria-current');
-        item.querySelector('span').textContent = number < current ? '✓' : String(number);
-      });
-      if (focus) flow.querySelector(`[data-choice-panel="${name}"] h1`).focus();
-    };
-    flow.classList.add('choice-enhanced');
-    next.hidden = false;
-    previous.hidden = false;
-    next.addEventListener('click', () => { if (sectorSelect.reportValidity()) show('specialty'); });
-    previous.addEventListener('click', () => show('sector'));
-    flow.addEventListener('submit', event => {
-      if (!panels[0].hidden) { event.preventDefault(); if (sectorSelect.reportValidity()) show('specialty'); }
+  const filter = () => {
+    groups.forEach(group => {
+      group.hidden = Boolean(sector.value && group.dataset.sectorGroup !== sector.value);
+      if (!group.hidden && sector.value) group.open = true;
     });
-    flow.addEventListener('invalid', event => {
-      const panel = event.target.closest('[data-choice-panel]');
-      if (panel?.hidden) show(panel.dataset.choicePanel, false);
-      const details = event.target.closest('details');
-      if (details) details.open = true;
-    }, true);
-    show('sector', false);
-  }
+    all.hidden = !sector.value;
+  };
+  const show = (name, focus = true) => {
+    panels.forEach(panel => { panel.hidden = panel.dataset.choicePanel !== name; });
+    flow.querySelector(`[data-choice-panel="${name}"] h1`)?.focus({preventScroll: !focus});
+    document.querySelectorAll('[data-progress-step]').forEach(item => {
+      const number = Number(item.dataset.progressStep);
+      const current = name === 'sector' ? 2 : 3;
+      item.classList.toggle('is-complete', number < current);
+      if (number === current) item.setAttribute('aria-current', 'step'); else item.removeAttribute('aria-current');
+      item.querySelector('span').textContent = number < current ? '✓' : String(number);
+    });
+  };
+  sector.addEventListener('change', filter);
+  all.hidden = false;
+  all.addEventListener('click', () => { sector.value = ''; filter(); });
+  choices.forEach(choice => choice.addEventListener('change', () => {
+    if (!edited) activity.value = '';
+    update();
+  }));
+  next.hidden = false; previous.hidden = false;
+  next.addEventListener('click', () => { filter(); show('specialty'); });
+  previous.addEventListener('click', () => show('sector'));
+  flow.addEventListener('submit', event => {
+    if (!panels[0].hidden) { event.preventDefault(); filter(); show('specialty'); return; }
+    if (!choices.some(choice => choice.checked)) {
+      event.preventDefault(); sector.value = ''; filter();
+      choices[0].closest('details').open = true;
+      choices[0].setCustomValidity('Elegí al menos una especialidad.');
+      choices[0].reportValidity();
+    }
+  });
+  flow.addEventListener('invalid', event => {
+    show('specialty', false);
+    const details = event.target.closest('details'); if (details) details.open = true;
+  }, true);
+  update(); filter(); show('sector', false);
 }
 // Service chips are an enhancement of the editable, server-validated text field.
 const profileForm = document.querySelector('[data-confirm-profile]');
@@ -184,7 +190,7 @@ if (profileForm) {
     const button = event.submitter;
     const feedback = profileForm.querySelector('[data-save-feedback]');
     const count = terms.value.split(',').map(term => term.trim()).filter(Boolean).length;
-    if (count < 1 || count > 8) { details.open = true; feedback.textContent = 'Elegí entre 1 y 8 servicios para continuar.'; terms.focus(); return; }
+    if (count < 1 || count > Number(profileForm.dataset.serviceLimit)) { details.open = true; feedback.textContent = `Elegí entre 1 y ${profileForm.dataset.serviceLimit} servicios para continuar.`; terms.focus(); return; }
     button.disabled = true; profileForm.setAttribute('aria-busy', 'true'); feedback.textContent = 'Guardando tu perfil…';
     try {
       const response = await fetch(profileForm.action, {method:'POST', body:new FormData(profileForm), headers:{Accept:'application/json'}, credentials:'same-origin'});
