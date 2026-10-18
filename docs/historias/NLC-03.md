@@ -11,7 +11,7 @@ Revisión autorizada el 18 de octubre de 2026. Los criterios siguientes delimita
 - [x] Mantener actividad o especialidades, servicios, cobertura y exclusiones editables en borrador hasta confirmación explícita.
 - [x] Confirmar perfil de forma atómica, conservar ítems manuales y decisiones, y pedir precisión cuando la descripción sea ambigua.
 - [x] Comprobar que catálogo, sesión y revocación sobreviven a un reinicio real de la API.
-- [ ] Recorrer manualmente formularios y errores en escritorio y una vista móvil del entorno elegido, con etiquetas y navegación por teclado.
+- [x] Recorrer manualmente formularios y errores en escritorio y una vista móvil del entorno elegido, con etiquetas y navegación por teclado.
 
 ## Ampliaciones opcionales · no bloquean la entrega
 - Auditoría exhaustiva de accesibilidad, soporte de todos los navegadores y sistemas operativos, y evaluación con empresas reales.
@@ -23,7 +23,7 @@ Revisión autorizada el 18 de octubre de 2026. Los criterios siguientes delimita
 RF-01/14; RNF-04/10.
 
 ## Evidencia y estado
-Pruebas de web, registro, onboarding, múltiples especialidades y reinicio. La comprobación automática no reemplaza el recorrido manual pendiente.
+Pruebas de web, registro, onboarding, múltiples especialidades y reinicio. Revisión básica ejecutada el 18 de octubre de 2026 en navegador integrado, escritorio 1366 × 900 y móvil 390 × 844: login/errores, perfil, catálogo, etiquetas y teclado. [Resultados y capturas](https://github.com/EstebanS3/NexoLicitCR/blob/codex/entrega-universitaria/docs/validacion/README.md); no constituye una auditoría exhaustiva ni una prueba en Edge.
 
 Las casillas verificadas describen evidencia técnica; no cierran automáticamente esta issue ni afirman que una propuesta esté fusionada. Los cambios de esta revisión se preparan en la rama `codex/entrega-universitaria` para revisión.
 

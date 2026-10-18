@@ -1,14 +1,14 @@
 ## Historia
-Como estudiante, quiero presentar una demo reproducible y evidencia honesta del comportamiento de la base de datos y de los límites del radar.
+Como estudiante, quiero presentar una memoria escrita de validación y evidencia honesta del comportamiento de la base de datos y de los límites del radar.
 
 ## Alcance de la entrega universitaria
 Revisión autorizada el 18 de octubre de 2026. Los criterios siguientes delimitan la entrega obligatoria. MongoDB real puede ser local autenticado con replica set o Atlas. Redis es caché opcional; Docker es opcional.
 
 ## Criterios de aceptación
-- [ ] Ejecutar un recorrido completo: cuenta/login → perfil confirmado y catálogo → consulta acotada → evidencia → decisión → cambio de cierre controlado → reinicio, conservando datos.
+- [x] Entregar una memoria textual y guion de exposición del recorrido cuenta/login → perfil y catálogo → consulta acotada → evidencia → decisión → cierre controlado → reinicio; vincular resultados esperados, pruebas ejecutadas y límites. No se exige un único E2E en vivo contra SICOP.
 - [x] Usar MongoDB real aislado para demostrar transacciones, rollback, GridFS íntegro y recuperación física del worker; un replica set local es suficiente.
 - [x] Mantener pruebas automáticas de ambigüedad, revisión concurrente, idempotencia y fallo de dependencias controlado.
-- [ ] Revisar manualmente formularios y errores en escritorio y una vista móvil del entorno elegido.
+- [x] Revisar manualmente formularios y errores en escritorio y una vista móvil del entorno elegido.
 - [x] Registrar mediciones reproducibles de 100 y 1.000 concursos con/sin caché de cálculo, identificar memoria/doble/servidor y reportar misses o bypass sin presentarlos como mejora; OCR se mide aparte.
 - [x] Documentar instalación, variables, versiones, comandos de prueba, guion de demo, evidencia y limitaciones; no incluir secretos ni anexos originales.
 
@@ -25,7 +25,7 @@ Revisión autorizada el 18 de octubre de 2026. Los criterios siguientes delimita
 RNF-01–10 ajustados al entorno académico; RF-16 opcional.
 
 ## Evidencia y estado
-Las casillas de ejecución manual permanecen pendientes hasta adjuntar resultados reales. La evaluación humana por pares es opcional y no bloquea la entrega. Tener código o reducir alcance no equivale a completar esas validaciones.
+[Memoria escrita, guion y resultados](https://github.com/EstebanS3/NexoLicitCR/blob/codex/entrega-universitaria/docs/validacion/README.md), con capturas sintéticas de escritorio/móvil. 346 pruebas sin integración y 9 con MongoDB real aprobadas. Se distingue revisión visual, pruebas por componente y guion narrado; no se afirma un E2E único con SICOP en vivo. La evaluación humana por pares es opcional.
 
 Las casillas verificadas describen evidencia técnica; no cierran automáticamente esta issue ni afirman que una propuesta esté fusionada. Los cambios de esta revisión se preparan en la rama `codex/entrega-universitaria` para revisión.
 

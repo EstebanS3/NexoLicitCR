@@ -16,7 +16,7 @@ Demostrar una aplicación útil y reproducible de Bases de Datos Avanzadas: mode
 - Radar con razones, fecha de verificación, alcance/resultado de consultas y avisos coherentes de evidencia incompleta. Decisiones y notas sobreviven a los cambios del perfil.
 - Caché opcional con invalidación y fallback. El ensayo obligatorio puede usar un doble controlado en memoria, identificado explícitamente.
 - Microbenchmark de cálculo/serialización para 100 y 1.000 concursos, con equivalencia de resultados, muestras, tamaños y límites. Un miss/bypass nunca se presenta como mejora. No atribuir tiempos del doble a Redis o al sistema completo.
-- Un recorrido reproducible completo que conserve datos tras reinicio, un caso de fallo controlado y revisión manual de formularios en escritorio y una vista móvil del entorno elegido.
+- Una memoria textual del recorrido completo, con resultados esperados y trazabilidad de pruebas de persistencia tras reinicio y fallo controlado; revisión básica de formularios en escritorio y una vista móvil del entorno elegido. No se exige un único E2E en vivo contra SICOP.
 - README, configuración sin secretos, comandos de instalación/prueba, evidencia, guion de demo y pendientes honestos.
 
 La demo acredita comportamientos técnicos; no declara precisión o exhaustividad del ranking sin una evaluación específica.
@@ -48,7 +48,7 @@ La demo acredita comportamientos técnicos; no declara precisión o exhaustivida
 | NLC-07 | Coincidencias explicadas y decisiones; propuestas de perfil desde feedback opcionales. |
 | NLC-08 | Correctitud de caché y microbenchmark 100/1.000; servidor real y escala mayor opcionales. |
 | NLC-09 | Extensión opcional completa; conservar etiquetas y bloqueos honestos. |
-| NLC-10 | Demo académica y evidencia técnica; no exige evaluación por pares, producción ni empresas. |
+| NLC-10 | Memoria escrita y guion académico con evidencia técnica y revisión básica de UI; no exige E2E único en vivo, evaluación por pares, producción ni empresas. |
 
 Los textos vigentes por issue están en [historias/](historias/README.md). El [snapshot anterior](historias/archivo/2026-10-18-antes-del-ajuste.json) permite auditar lo retirado. Los estados abiertos se conservan; cambiar el alcance no equivale a cerrar una historia o a completar una validación pendiente.
 

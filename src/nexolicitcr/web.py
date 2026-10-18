@@ -1,5 +1,5 @@
 import secrets
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, nullcontext
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
@@ -21,6 +21,7 @@ from .discovery import matching_catalog, suggest
 from .jobs import JobQueue
 from .matching import Radar, deadline_status, normalized, tender_match
 from .models import CatalogItem, CompanyProfile
+from .runtime import local_worker
 from .sectors import SECTORS, combined_terms, selected_specialties
 from .security import DUMMY_HASH, PASSWORDS, check_password, valid_username, validate_password
 from .storage import ConflictError, Store, connect, token_hash, utcnow
@@ -75,7 +76,9 @@ class RequestLimits:
         await self.app(scope, limited_receive, send)
 
 
-def create_app(settings: Settings | None = None, store: Store | None = None):
+def create_app(
+    settings: Settings | None = None, store: Store | None = None, *, with_worker: bool = False
+):
     settings = settings or Settings()
     mongo = None
     if store is None:
@@ -88,10 +91,14 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
 
     @asynccontextmanager
     async def lifespan(app):
-        yield
-        cache.close()
-        if mongo is not None:
-            mongo.close()
+        try:
+            # Uvicorn retransmite SIGTERM después del lifespan: limpiar el worker antes.
+            with local_worker() if settings.app_mode == "local" and with_worker else nullcontext():
+                yield
+        finally:
+            cache.close()
+            if mongo is not None:
+                mongo.close()
 
     app = FastAPI(
         title="NexoLicitCR",

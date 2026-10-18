@@ -23,6 +23,8 @@ NexoLicitCR busca acercar las compras públicas de Costa Rica a las pequeñas y 
 
 **Entrega universitaria:** [alcance obligatorio y ampliaciones opcionales](docs/alcance-academico.md), con [historias actualizadas](docs/historias/README.md). Se demuestra un entorno MongoDB real; Docker/Compose, Redis real, validación extensa de infraestructura y evaluación con empresas son opcionales.
 
+La [memoria escrita de validación y guion de exposición](docs/validacion/README.md) reúne las pruebas, la revisión visual y sus límites.
+
 Ver [arquitectura y librerías](docs/architecture.md), [operación y Docker opcional](docs/operations.md) y [estado verificable de los issues](docs/planning-status.md).
 
 **Documentación integral:** [guía extensa en Markdown](docs/DOCUMENTACION.md). Incluye propuesta de valor, experiencia, arquitectura, instalación, operación y evolución, con una narrativa preparada para presentar el proyecto.

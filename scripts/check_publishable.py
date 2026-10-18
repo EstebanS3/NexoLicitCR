@@ -33,6 +33,9 @@ patterns = [
 private = [Path.home().name.casefold()]
 # Exact reviewed image bytes; changed or additional binaries require manual review.
 reviewed_assets = {
+    "docs/validacion/radar-escritorio.png": "6d17941c929139dd360b36a41bdb17f0e296cdbe2976cc601b04790c9cfce270",
+    "docs/validacion/catalogo-movil.png": "69fcc86ce15f3b6b3a4b74f119361aec02080811c8355405b801c44b62016b11",
+    "docs/validacion/acceso-invalido-movil.png": "644df89489b9933ad5f76a4134e458cbf06e40e765d2e84a9540d8450f500302",
     "docs/assets/mongodb-schema.png": "3878f364077ba6d5d32016652c794a06121850bc3dc1852cec37cd4c40f51bbe",
     "docs/assets/nexolicitcr-logo.png": "58ac82248b6e3a94511b63b4c10409682490d762deef013138c07b895531bfad",
 }
