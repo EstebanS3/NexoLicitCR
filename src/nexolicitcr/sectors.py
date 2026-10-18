@@ -109,6 +109,19 @@ SECTORS = {
     "construction": {
         "label": "Construcción y obras",
         "specialties": {
+            "civil": (
+                "Obra civil e infraestructura pública",
+                [
+                    "obra civil",
+                    "obras públicas",
+                    "construcción de infraestructura",
+                    "construcción de edificios",
+                    "construcción de vestidores",
+                    "construcción de plazoletas",
+                    "construcción de aceras",
+                    "mantenimiento de edificios",
+                ],
+            ),
             "buildings": (
                 "Construcción y remodelación de edificios",
                 [
@@ -543,3 +556,25 @@ def specialty_terms(sector, specialty):
     if sector not in SECTORS or specialty not in SECTORS[sector]["specialties"]:
         raise ValueError("Elegí una especialidad que pertenezca al sector seleccionado.")
     return list(SECTORS[sector]["specialties"][specialty][1])
+
+
+def selected_specialties(values=None, sector="", specialty=""):
+    """Validate stable sector:specialty IDs; accept old single-choice forms/profiles."""
+    if values is None:
+        specialty_terms(sector, specialty)
+        return [f"{sector}:{specialty}"] if sector else []
+    if not 1 <= len(values) <= 8 or len(set(values)) != len(values):
+        raise ValueError("Elegí entre 1 y 8 especialidades diferentes.")
+    for value in values:
+        if len(value) > 81 or value.count(":") != 1:
+            raise ValueError("Especialidad inválida.")
+        specialty_terms(*value.split(":"))
+    return list(values)
+
+
+def combined_terms(selections):
+    return list(
+        dict.fromkeys(
+            term for selection in selections for term in specialty_terms(*selection.split(":"))
+        )
+    )

@@ -151,3 +151,30 @@ def test_retry_after_http_date():
 
     value = format_datetime(datetime.now(UTC) + timedelta(seconds=180), usegmt=True)
     assert 179 <= retry_after_seconds(value) <= 180
+
+
+def test_every_sicop_request_looks_like_a_browser(monkeypatch):
+    # SICOP's firewall answers a bare "Mozilla/5.0" with a 200 text/plain block page,
+    # which made every annex metadata request fail against the real source.
+    from nexolicitcr import documents
+    from nexolicitcr.sicop import HEADERS
+
+    seen = []
+
+    def handler(request):
+        seen.append(request.headers)
+        return httpx.Response(200, json=[] if request.method == "GET" else {"ok": True})
+
+    real_client = httpx.Client
+    monkeypatch.setattr(
+        documents.httpx,
+        "Client",
+        lambda **kwargs: real_client(transport=httpx.MockTransport(handler)),
+    )
+    assert documents.metadata_get("/files", {"cartelNo": "1", "cartelSeq": "00"}) == []
+    api(handler).post("/detail", {})
+    assert len(seen) == 2
+    for headers in seen:
+        assert headers["user-agent"] == HEADERS["User-Agent"]
+        assert "(" in headers["user-agent"]  # Un User-Agent incompleto es bloqueado.
+        assert headers["origin"] == "https://www.sicop.go.cr"
