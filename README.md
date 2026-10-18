@@ -23,6 +23,8 @@ NexoLicitCR busca acercar las compras públicas de Costa Rica a las pequeñas y 
 
 Ver [arquitectura y librerías](docs/architecture.md), [operación y Docker](docs/operations.md) y [estado verificable de los issues](docs/planning-status.md).
 
+**Documentación integral:** [guía extensa en Markdown](docs/DOCUMENTACION.md). Incluye propuesta de valor, experiencia, arquitectura, instalación, operación y evolución, con una narrativa preparada para presentar el proyecto.
+
 ## Instalación
 
 Requiere Python 3.12 o 3.13, uv y MongoDB Atlas o un replica set local autenticado. OCR requiere Tesseract español y Poppler.
@@ -140,6 +142,6 @@ Distribuido bajo la [licencia MIT](LICENSE).
 
 ## Evolución propuesta
 
-[Descubrimiento guiado desde la actividad de la empresa](docs/guided-discovery.md): configuración de empresa, sector, especialidad y revisión de servicios en `/company` y `/discover`. Incluye 20 sectores y 65 especialidades editables, oportunidades explicadas y consultas acotadas de SICOP. Las sugerencias son deterministas y requieren confirmación; feedback asistido y evaluación humana siguen pendientes.
+[Descubrimiento guiado desde la actividad de la empresa](docs/guided-discovery.md): configuración de empresa, sector, especialidad y revisión de servicios en `/company` y `/discover`. Incluye 20 sectores y 66 opciones de especialidad (65 predefinidas y una personalizada), oportunidades explicadas y consultas acotadas de SICOP. Las sugerencias son deterministas y requieren confirmación; feedback asistido y evaluación humana siguen pendientes.
 
 La cola conserva avances y respeta pausas de SICOP ante HTTP 429. Desde Actividad se pueden reanudar consultas fallidas o canceladas sin perder checkpoints ni duplicar continuaciones. También: `uv run nexolicit resume ID_DE_CONSULTA`. Ver [operación y límites](docs/operations.md).
