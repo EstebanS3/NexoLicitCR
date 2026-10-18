@@ -66,7 +66,7 @@ NEXO_TEST_LOCAL=1 NEXO_TEST_DATABASE=nexolicit_test_local uv run pytest -m integ
 NEXO_TEST_ATLAS=1 NEXO_TEST_DATABASE=nexolicit_test_integration uv run pytest -m integration
 ```
 
-Los tests con mongomock son evidencia de lógica, no de transacciones/recuperación física real. No se inicia MongoDB ni API automáticamente desde pytest. Para evaluar calidad se necesitan 30–50 pares catálogo/concurso etiquetados por humanos; no sustituirlos por etiquetas generadas. La prueba de equivalencia de caché usa un doble Redis con caída/recuperación; la latencia real requiere un Redis de prueba.
+Los tests con mongomock son evidencia de lógica, no de transacciones/recuperación física real. `tests/test_restart_integration.py` (marcado `integration`) levanta `nexolicit api` como proceso real, registra la cuenta, inicia sesión y guarda un ítem del catálogo; mata el proceso sin apagado ordenado, lo vuelve a levantar y comprueba con la misma cookie que la sesión y el catálogo persisten. Tras cerrar sesión y reiniciar otra vez, el token revocado se rechaza en el servidor. Requiere una base de prueba sin administrador y restaura el catálogo al terminar. No se inicia MongoDB ni API automáticamente desde pytest. Para evaluar calidad se necesitan 30–50 pares catálogo/concurso etiquetados por humanos; no sustituirlos por etiquetas generadas. La prueba de equivalencia de caché usa un doble Redis con caída/recuperación; la latencia real requiere un Redis de prueba.
 
 ### Mantenimiento automático de la cola
 
