@@ -572,7 +572,7 @@ uv run python scripts/audit_ocr.py --output artifacts/ocr-audit.json
 
 El primer script usa por defecto 100 y 1.000 concursos; `--counts 100 10000` conserva la ampliación de escala. Si hay miss/bypass, el tiempo de lectura de caché se deja nulo y no se presenta como mejora. Es un microbenchmark sin conexión de cálculo y serialización; no mide red MongoDB, Redis real, latencia de SICOP ni capacidad concurrente del servidor. El segundo genera documentos sintéticos y mide recuperación de frases conocidas mediante OCR a través de los sectores comerciales; requiere los binarios y una fuente compatible. No mide calidad universal de pliegos reales ni precisión comercial del ranking.
 
-Para evaluar la utilidad del radar hacen falta pares de catálogo/concurso etiquetados por personas y criterios de aceptación acordados. La entrega universitaria requiere una muestra exploratoria de 10–20 pares revisados manualmente; 30–50 o más pares y la evaluación con empresas son una ampliación opcional. Las etiquetas inventadas automáticamente no sustituyen esa referencia humana. Un benchmark rápido y una suite aprobada son evidencias distintas de una validación con usuarios.
+Para evaluar la utilidad del radar hacen falta pares de catálogo/concurso etiquetados por personas y criterios de aceptación acordados. La evaluación humana por pares y los estudios con empresas son ampliaciones opcionales, sin muestra mínima para la entrega universitaria. Las etiquetas inventadas automáticamente no sustituyen esa referencia humana. Un benchmark rápido y una suite aprobada son evidencias distintas de una validación con usuarios.
 
 ### Registro sugerido de una validación
 

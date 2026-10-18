@@ -10,13 +10,12 @@ Revisión autorizada el 18 de octubre de 2026. Los criterios siguientes delimita
 - [x] Mantener pruebas automáticas de ambigüedad, revisión concurrente, idempotencia y fallo de dependencias controlado.
 - [ ] Revisar manualmente formularios y errores en escritorio y una vista móvil del entorno elegido.
 - [x] Registrar mediciones reproducibles de 100 y 1.000 concursos con/sin caché de cálculo, identificar memoria/doble/servidor y reportar misses o bypass sin presentarlos como mejora; OCR se mide aparte.
-- [ ] Revisar manualmente 10–20 pares perfil/concurso y registrar etiqueta, justificación y métricas exploratorias de precisión/exhaustividad, sin generalizar esa muestra.
 - [x] Documentar instalación, variables, versiones, comandos de prueba, guion de demo, evidencia y limitaciones; no incluir secretos ni anexos originales.
 
 ## Ampliaciones opcionales · no bloquean la entrega
 - Docker/Compose: disponibles como alternativa opcional; construir o ejecutar contenedores no es condición de aceptación.
 - Atlas como segundo entorno, Redis real, despliegue público, alta disponibilidad, validación extensa de infraestructura y soporte multiplataforma completo.
-- Evaluación formal con empresas y conjunto de 30–50 o más pares humanos; no sustituir la muestra obligatoria por etiquetas generadas.
+- Evaluación humana de relevancia, etiquetado de pares y estudios con empresas; no se exige una muestra mínima ni esas métricas para la entrega.
 - Comparables adjudicados, recomendaciones automáticas y benchmarking de 10.000 concursos.
 
 ## Dependencias
@@ -26,7 +25,7 @@ Revisión autorizada el 18 de octubre de 2026. Los criterios siguientes delimita
 RNF-01–10 ajustados al entorno académico; RF-16 opcional.
 
 ## Evidencia y estado
-Las casillas de ejecución manual y evaluación humana permanecen pendientes hasta adjuntar resultados reales. Tener código o reducir alcance no equivale a completar esas validaciones.
+Las casillas de ejecución manual permanecen pendientes hasta adjuntar resultados reales. La evaluación humana por pares es opcional y no bloquea la entrega. Tener código o reducir alcance no equivale a completar esas validaciones.
 
 Las casillas verificadas describen evidencia técnica; no cierran automáticamente esta issue ni afirman que una propuesta esté fusionada. Los cambios de esta revisión se preparan en la rama `codex/entrega-universitaria` para revisión.
 

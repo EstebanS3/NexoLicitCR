@@ -25,9 +25,9 @@ Actualizado el 18 de octubre de 2026. Rige [alcance-academico.md](alcance-academ
 | NLC-07 | Razones, decisiones persistentes y completitud compartida por radar y detalle. | Aceptación visual de las explicaciones. |
 | NLC-08 | Invalidación/fallback, tres modos con doble Redis y microbenchmark 100/1.000. | Aceptación de los resultados y sus límites. |
 | NLC-09 | Parser y CLI de ofertas presentadas, con comparables bloqueados. | Ninguno para la entrega obligatoria: historia opcional. |
-| NLC-10 | Suite automática e integración real; documentación y benchmark. | E2E completo documentado, revisión básica de UI y 10–20 pares revisados por humanos con métricas exploratorias. |
+| NLC-10 | Suite automática e integración real; documentación y benchmark. | E2E completo documentado y revisión básica de UI. |
 
-Quedan fuera de la aceptación obligatoria Docker, un segundo backend Atlas/local, Redis real, operación de producción, cobertura multiplataforma completa, estudio con empresas, 30–50 pares y comparables adjudicados. No se consideran implementados por haberlos movido a ampliaciones.
+Quedan fuera de la aceptación obligatoria Docker, un segundo backend Atlas/local, Redis real, operación de producción, cobertura multiplataforma completa, evaluación humana por pares, estudio con empresas y comparables adjudicados. No se consideran implementados por haberlos movido a ampliaciones.
 
 ## Cómo reproducir
 

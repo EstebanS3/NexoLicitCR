@@ -17,8 +17,9 @@ Demostrar una aplicación útil y reproducible de Bases de Datos Avanzadas: mode
 - Caché opcional con invalidación y fallback. El ensayo obligatorio puede usar un doble controlado en memoria, identificado explícitamente.
 - Microbenchmark de cálculo/serialización para 100 y 1.000 concursos, con equivalencia de resultados, muestras, tamaños y límites. Un miss/bypass nunca se presenta como mejora. No atribuir tiempos del doble a Redis o al sistema completo.
 - Un recorrido reproducible completo que conserve datos tras reinicio, un caso de fallo controlado y revisión manual de formularios en escritorio y una vista móvil del entorno elegido.
-- Revisión humana exploratoria de 10–20 pares perfil/concurso, con etiqueta, justificación y métricas de precisión/exhaustividad acordes con la muestra; no inventar etiquetas ni generalizar.
 - README, configuración sin secretos, comandos de instalación/prueba, evidencia, guion de demo y pendientes honestos.
+
+La demo acredita comportamientos técnicos; no declara precisión o exhaustividad del ranking sin una evaluación específica.
 
 ## Ampliaciones opcionales
 
@@ -29,7 +30,7 @@ Demostrar una aplicación útil y reproducible de Bases de Datos Avanzadas: mode
 | Redis real | Red, caídas físicas y benchmark de servidor son ampliaciones; la lógica cliente y sus dobles siguen siendo parte de la demostración. |
 | Producción e infraestructura | Despliegue público, alta disponibilidad, múltiples nodos, pruebas extensas de particiones y SLA no son entrega obligatoria. |
 | Multiplataforma y accesibilidad exhaustiva | Se elige y documenta un entorno. La revisión básica de interacción se mantiene; no se exige una matriz completa de plataformas. |
-| Evaluación con empresas | Estudio formal de utilidad y 30–50 o más pares humanos quedan fuera. Se mantiene la muestra académica exploratoria de 10–20. |
+| Evaluación humana o con empresas | Etiquetado de pares y medición de relevancia quedan como ampliación opcional, sin una muestra mínima para la entrega. |
 | Feedback que propone cambios | El mínimo guarda estado y nota; propuestas automáticas revisables requieren otro incremento. |
 | Histórico y comparables | NLC-09 es opcional; RF-16 no se implementa sin fuente final por línea validada. Nunca inferir adjudicación de ofertas. |
 | Escala adicional | 10.000 concursos y mediciones extremo a extremo son ampliaciones, sin promesas de rendimiento. |
@@ -47,7 +48,7 @@ Demostrar una aplicación útil y reproducible de Bases de Datos Avanzadas: mode
 | NLC-07 | Coincidencias explicadas y decisiones; propuestas de perfil desde feedback opcionales. |
 | NLC-08 | Correctitud de caché y microbenchmark 100/1.000; servidor real y escala mayor opcionales. |
 | NLC-09 | Extensión opcional completa; conservar etiquetas y bloqueos honestos. |
-| NLC-10 | Demo académica, evidencia y 10–20 pares manuales; no exige producción ni empresas. |
+| NLC-10 | Demo académica y evidencia técnica; no exige evaluación por pares, producción ni empresas. |
 
 Los textos vigentes por issue están en [historias/](historias/README.md). El [snapshot anterior](historias/archivo/2026-10-18-antes-del-ajuste.json) permite auditar lo retirado. Los estados abiertos se conservan; cambiar el alcance no equivale a cerrar una historia o a completar una validación pendiente.
 
