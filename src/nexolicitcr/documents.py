@@ -299,8 +299,10 @@ class DocumentService:
                     except subprocess.TimeoutExpired:
                         if sys.platform == "win32":
                             process.kill()
-                        else:
+                        elif hasattr(os, "killpg"):
                             os.killpg(process.pid, signal.SIGKILL)
+                        else:
+                            process.kill()
                         process.wait()
                         raise
                     if code:

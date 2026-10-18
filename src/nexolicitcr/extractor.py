@@ -162,19 +162,28 @@ def extract(path, max_pages):
     return pages
 
 
+def apply_limits():
+    """Apply rlimits where the platform supports them.
+
+    The resource module is Unix-only; on Windows the parent's subprocess timeout is the bound.
+    """
+    try:
+        import resource
+    except ImportError:
+        return
+    resource.setrlimit(resource.RLIMIT_CPU, (110, 115))
+    resource.setrlimit(resource.RLIMIT_FSIZE, (64 * 1024 * 1024, 64 * 1024 * 1024))
+    if sys.platform == "linux":
+        resource.setrlimit(resource.RLIMIT_AS, (1024 * 1024 * 1024, 1024 * 1024 * 1024))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("input")
     parser.add_argument("output")
     parser.add_argument("--pages", type=int, default=30)
     args = parser.parse_args()
-    if sys.platform != "win32":
-        import resource
-
-        resource.setrlimit(resource.RLIMIT_CPU, (110, 115))
-        resource.setrlimit(resource.RLIMIT_FSIZE, (64 * 1024 * 1024, 64 * 1024 * 1024))
-        if sys.platform == "linux":
-            resource.setrlimit(resource.RLIMIT_AS, (1024 * 1024 * 1024, 1024 * 1024 * 1024))
+    apply_limits()
     result = extract(Path(args.input), args.pages)
     Path(args.output).write_text(json.dumps(result, ensure_ascii=False))
 

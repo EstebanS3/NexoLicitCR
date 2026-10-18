@@ -27,6 +27,8 @@ Una interrupción deja un lease recuperable; otro worker lo reclama al vencer. L
 
 Límites por defecto: 20 MiB/archivo, 5 anexos/concurso, 30 páginas, 120 segundos de extracción total. PDF con menos de 40 caracteres por página usa OCR español; también páginas con menos de 250 caracteres y una imagen de al menos 800 × 800 píxeles. El OCR usa detección automática de orientación. Los PDF que superan el límite conservan las primeras páginas y quedan parciales (`PAGE_COUNT_LIMIT`). Fallos y páginas no procesadas quedan explícitos, no equivalen a “sin requisitos”. `DOCUMENT_HOSTS` solo admite hosts HTTPS exactos previamente verificados. El host Oracle verificado en `source-validation.md` está habilitado por defecto; un `DOCUMENT_HOSTS` explícito reemplaza esa lista. Otros hosts requieren verificar la procedencia antes de agregarlos. No guardar ni publicar esas URLs firmadas.
 
+La extracción corre en un subproceso aislado (`python -m nexolicitcr.extractor`). En Linux/macOS aplica además `rlimit` de CPU (110 s) y tamaño de archivo (64 MiB), y en Linux memoria virtual (1 GiB). Windows no tiene el módulo `resource`: allí no hay `rlimit` y el único límite es el tiempo de extracción del proceso padre (`EXTRACTION_TIMEOUT_SECONDS`, 120 s por defecto), que termina el subproceso al vencer. Para servidores usar Linux.
+
 ```bash
 uv run nexolicit document-orphans
 uv run nexolicit import-offers CARTEL:SECUENCIA --lot 1

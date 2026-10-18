@@ -141,6 +141,39 @@ def test_gridfs_publication_and_lease_fencing(store, settings, tmp_path, monkeyp
     assert store.db.documents.count_documents({"tender_key": "test:2"}) == 0
 
 
+def test_extractor_imports_and_runs_without_resource_module(monkeypatch):
+    import importlib
+    import sys
+
+    monkeypatch.setitem(sys.modules, "resource", None)
+    monkeypatch.delitem(sys.modules, "nexolicitcr.extractor", raising=False)
+    extractor = importlib.import_module("nexolicitcr.extractor")
+    extractor.apply_limits()
+
+
+def test_extractor_applies_rlimits_when_resource_is_available(monkeypatch):
+    import sys
+    import types
+
+    import nexolicitcr.extractor as extractor
+
+    calls = []
+    fake = types.SimpleNamespace(
+        RLIMIT_CPU="cpu",
+        RLIMIT_FSIZE="fsize",
+        RLIMIT_AS="as",
+        setrlimit=lambda kind, limits: calls.append((kind, limits)),
+    )
+    monkeypatch.setitem(sys.modules, "resource", fake)
+    monkeypatch.setattr(extractor.sys, "platform", "linux")
+    extractor.apply_limits()
+    assert calls == [
+        ("cpu", (110, 115)),
+        ("fsize", (64 * 1024 * 1024, 64 * 1024 * 1024)),
+        ("as", (1024 * 1024 * 1024, 1024 * 1024 * 1024)),
+    ]
+
+
 def test_reference_failure_recovers_without_stale_failure_or_removed_evidence(
     store, settings, tmp_path, monkeypatch
 ):
