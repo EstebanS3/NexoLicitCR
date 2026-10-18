@@ -3,21 +3,61 @@
 import re
 import unicodedata
 from datetime import datetime
+from functools import lru_cache
 
 from pydantic import ValidationError
 
 from .models import Match, Tender
 from .storage import ConflictError, utcnow
 
-RULES_VERSION = "2026-10-v2"
+RULES_VERSION = "2026-10-v3"
+
+# Explicit alternatives, restricted to the source's Obras category. They broaden
+# selected capabilities, never infer that a road contractor offers every trade.
+WORKS_ALIASES = {
+    "pavimentacion": (
+        "estructura de pavimento",
+        "construcción de pavimento",
+        "colocación de mezcla asfáltica",
+        "compactación de material granular",
+        "colocación de concreto permeable",
+    ),
+    "carpeta asfaltica": ("colocación de mezcla asfáltica",),
+    "mantenimiento de vias": ("conservación vial", "rehabilitación vial"),
+    "mejoramiento del camino": ("mejoramiento de caminos", "mejoramiento de la red vial"),
+    "construccion de edificios": (
+        "construcción de la guardia rural",
+        "construcción de vestidores",
+    ),
+    "mantenimiento de edificios": (
+        "mantenimiento y reparación de edificios",
+        "mantenimiento correctivo del edificio",
+    ),
+}
+
+
+def normalized_characters(value):
+    # Rejoin words split at a PDF/OCR line ending and remove discretionary hyphens.
+    skipped = set()
+    for match in re.finditer(r"(?<=\w)[-\u00ad][ \t]*\r?\n[ \t]*(?=\w)", value):
+        skipped.update(range(match.start(), match.end()))
+    chars, offsets = [], []
+    for index, character in enumerate(value):
+        if index in skipped or character == "\u00ad":
+            continue
+        for char in unicodedata.normalize("NFKD", character.lower()):
+            if unicodedata.combining(char):
+                continue
+            char = " " if char.isspace() else char
+            if char == " " and (not chars or chars[-1] == " "):
+                continue
+            chars.append(char)
+            offsets.append(index)
+    return "".join(chars), offsets
 
 
 def normalized(value):
-    return " ".join(
-        "".join(
-            c for c in unicodedata.normalize("NFKD", value.lower()) if not unicodedata.combining(c)
-        ).split()
-    )
+    return normalized_characters(value)[0].strip()
 
 
 # Explicit inflections avoid unsafe stemming (e.g. "red" vs "redes sociales").
@@ -33,10 +73,17 @@ INFLECTIONS = [
     ("jardin", "jardines"),
     ("zona", "zonas"),
     ("verde", "verdes"),
+    ("obra", "obras"),
+    ("civil", "civiles"),
+    ("publica", "publicas"),
+    ("camino", "caminos"),
+    ("plazoleta", "plazoletas"),
+    ("acera", "aceras"),
 ]
 VARIANTS = {word: pair for pair in INFLECTIONS for word in pair}
 
 
+@lru_cache(maxsize=2048)
 def term_pattern(term):
     words = normalized(term).split()
     if not words:
@@ -59,13 +106,8 @@ def contains(text, term):
 def evidence_fragment(text, term):
     # Map normalized characters back to the source so whitespace and accents do
     # not shift the excerpt. The returned fragment always comes from real evidence.
-    chars, offsets = [], []
-    for index, character in enumerate(text):
-        for value in unicodedata.normalize("NFKD", character.lower()):
-            if not unicodedata.combining(value):
-                chars.append(value)
-                offsets.append(index)
-    match = re.search(term_pattern(term), "".join(chars))
+    chars, offsets = normalized_characters(text)
+    match = re.search(term_pattern(term), chars)
     position = offsets[match.start()] if match else 0
     return text[max(0, position - 60) : position + 180]
 
@@ -85,7 +127,7 @@ def deadline_status(tender, now=None):
     return "closed" if deadline <= now else tender["status"]
 
 
-def score(tender, catalog, pages=()):
+def score(tender, catalog, pages=(), *, incomplete_documents=False):
     evidence = [(tender["title"], "title", None, None, True, 35)]
     evidence += [
         (x["description"], "line", None, f"{x['lot']}/{x['number']}", True, 30)
@@ -95,20 +137,36 @@ def score(tender, catalog, pages=()):
         (x["text"], x["method"], x.get("document_id"), x["page"], x["method"] == "digital", 15)
         for x in pages
     ]
+    normalized_evidence = [(entry, normalized(entry[0])) for entry in evidence]
     products = []
     for item in catalog["items"]:
         if not item["active"]:
             continue
         reasons, exclusions, review = [], [], False
-        for text, method, document, page, reliable, weight in evidence:
+        for (text, method, document, page, reliable, weight), searchable in normalized_evidence:
             for term in item.get("exclusions", []):
-                if contains(text, term):
+                if term_pattern(term) and re.search(term_pattern(term), searchable):
                     if reliable:
                         exclusions.append(term)
                     else:
                         review = True
-            for term in item.get("keywords", []) or [item["name"]]:
-                if contains(text, term):
+            keywords = item.get("keywords", []) or [item["name"]]
+            terms = list(
+                dict.fromkeys(
+                    term
+                    for keyword in keywords
+                    for term in [
+                        keyword,
+                        *(
+                            WORKS_ALIASES.get(normalized(keyword), ())
+                            if tender.get("category") == "obras"
+                            else ()
+                        ),
+                    ]
+                )
+            )
+            for term in terms:
+                if term_pattern(term) and re.search(term_pattern(term), searchable):
                     reasons.append(
                         {
                             "term": term,
@@ -153,7 +211,9 @@ def score(tender, catalog, pages=()):
         "score": max((p["score"] for p in products), default=0),
         "products": products,
         "rules_version": RULES_VERSION,
-        "preliminary": not bool(pages) or any(page.get("error") for page in pages),
+        "preliminary": incomplete_documents
+        or not bool(pages)
+        or any(page.get("error") for page in pages),
     }
 
 
@@ -190,21 +250,30 @@ class Radar:
             if not self.valid_cached_rows(rows):
                 rows = []
                 for row in self.store.db.tenders.find({}).sort("_id", 1):
-                    docs = list(
+                    document_states = list(
                         self.store.db.documents.find(
                             {
                                 "tender_key": row["_id"],
-                                "current": True,
-                                "state": {"$in": ["ready", "partial"]},
+                                "current": {"$ne": False},
                             }
                         )
                     )
+                    docs = [
+                        d
+                        for d in document_states
+                        if d.get("current") and d["state"] in {"ready", "partial"}
+                    ]
                     pages = list(
                         self.store.db.extracted_pages.find(
                             {"document_id": {"$in": [d["_id"] for d in docs]}}
                         )
                     )
-                    match = score(row["payload"], catalog, pages)
+                    match = score(
+                        row["payload"],
+                        catalog,
+                        pages,
+                        incomplete_documents=any(d["state"] != "ready" for d in document_states),
+                    )
                     identity = {
                         "company": "company",
                         "catalog_revision": catalog["revision"],

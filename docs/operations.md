@@ -25,7 +25,7 @@ Una interrupción deja un lease recuperable; otro worker lo reclama al vencer. L
 
 ## Documentos
 
-Límites por defecto: 20 MiB/archivo, 5 anexos/concurso, 30 páginas, 120 segundos de extracción total. PDF con menos de 40 caracteres por página usa OCR español. Fallos y páginas no procesadas quedan explícitos, no equivalen a “sin requisitos”. `DOCUMENT_HOSTS` solo admite hosts HTTPS exactos previamente verificados. Los hosts Oracle de URLs firmadas **no están habilitados automáticamente**; comprobar la procedencia antes de agregarlos. No guardar ni publicar esas URLs firmadas.
+Límites por defecto: 20 MiB/archivo, 5 anexos/concurso, 30 páginas, 120 segundos de extracción total. PDF con menos de 40 caracteres por página usa OCR español; también páginas con menos de 250 caracteres y una imagen de al menos 800 × 800 píxeles. El OCR usa detección automática de orientación. Los PDF que superan el límite conservan las primeras páginas y quedan parciales (`PAGE_COUNT_LIMIT`). Fallos y páginas no procesadas quedan explícitos, no equivalen a “sin requisitos”. `DOCUMENT_HOSTS` solo admite hosts HTTPS exactos previamente verificados. El host Oracle verificado en `source-validation.md` está habilitado por defecto; un `DOCUMENT_HOSTS` explícito reemplaza esa lista. Otros hosts requieren verificar la procedencia antes de agregarlos. No guardar ni publicar esas URLs firmadas.
 
 La extracción corre en un subproceso aislado (`python -m nexolicitcr.extractor`). En Linux/macOS aplica además `rlimit` de CPU (110 s) y tamaño de archivo (64 MiB), y en Linux memoria virtual (1 GiB). Windows no tiene el módulo `resource`: allí no hay `rlimit` y el único límite es el tiempo de extracción del proceso padre (`EXTRACTION_TIMEOUT_SECONDS`, 120 s por defecto), que termina el subproceso al vencer. Para servidores usar Linux.
 
@@ -68,7 +68,7 @@ NEXO_TEST_LOCAL=1 NEXO_TEST_DATABASE=nexolicit_test_local uv run pytest -m integ
 NEXO_TEST_ATLAS=1 NEXO_TEST_DATABASE=nexolicit_test_integration uv run pytest -m integration
 ```
 
-Los tests con mongomock son evidencia de lógica, no de transacciones/recuperación física real. No se inicia MongoDB ni API automáticamente desde pytest. Para evaluar calidad se necesitan 30–50 pares catálogo/concurso etiquetados por humanos; no sustituirlos por etiquetas generadas. La prueba de equivalencia de caché usa un doble Redis con caída/recuperación; la latencia real requiere un Redis de prueba.
+Los tests con mongomock son evidencia de lógica, no de transacciones/recuperación física real. `tests/test_restart_integration.py` (marcado `integration`) levanta `nexolicit api` como proceso real, registra la cuenta, inicia sesión y guarda un ítem del catálogo; mata el proceso sin apagado ordenado, lo vuelve a levantar y comprueba con la misma cookie que la sesión y el catálogo persisten. Tras cerrar sesión y reiniciar otra vez, el token revocado se rechaza en el servidor. Requiere una base de prueba sin administrador y restaura el catálogo al terminar. No se inicia MongoDB ni API automáticamente desde pytest. Para evaluar calidad se necesitan 30–50 pares catálogo/concurso etiquetados por humanos; no sustituirlos por etiquetas generadas. La prueba de equivalencia de caché usa un doble Redis con caída/recuperación; la latencia real requiere un Redis de prueba.
 
 ### Mantenimiento automático de la cola
 
@@ -157,3 +157,44 @@ claves separado del login, límites de intentos y errores sin contraseñas.
 Una empresa distinta requiere otra instalación y base exclusiva. Este registro
 inicial no incorpora recuperación de contraseña ni cuentas adicionales. El alta
 CLI sigue disponible y no reemplaza una cuenta existente.
+
+
+### Perfil con varias especialidades y evidencia OCR
+
+El perfil admite de 1 a 8 especialidades, incluso de distintos sectores, y hasta
+8 términos por especialidad (64 en total). Las sugerencias se combinan sin
+duplicados y se revisan antes de confirmar. Los perfiles anteriores de una sola
+especialidad continúan editables. Crear o editar el perfil no inicia consultas.
+
+En el radar, «Revisar anexos y aplicar OCR cuando haga falta» está marcado de
+forma predeterminada. Se puede desmarcar para consultar solo los datos del
+concurso y la evidencia ya guardada. El límite de archivos y páginas sigue
+siendo explícito; no se garantiza lectura completa de todos los anexos.
+
+OCR local requiere `tesseract`, el modelo `spa`, el modelo de orientación `osd`
+y `pdftoppm` en el PATH del proceso web/worker. En macOS:
+
+```bash
+brew install tesseract tesseract-lang poppler
+tesseract --list-langs
+```
+
+Reiniciar web y worker después de instalar. Los errores de binario, idioma,
+renderizado, texto vacío y límites se muestran en cada documento. Las páginas
+legibles de un documento parcial siguen contribuyendo a la afinidad. Los
+archivos fallidos u omitidos mantienen la evidencia como preliminar.
+
+La extracción `pdf-ocr-v2` vuelve a procesar documentos de versiones anteriores
+cuando se vuelven a consultar con anexos; no reescribe el corpus en segundo plano
+ni inicia una descarga histórica ilimitada. Las palabras cortadas por guion al
+final de línea pueden coincidir conservando el fragmento original de evidencia.
+
+Prueba nativa reproducible de todos los sectores comerciales:
+
+```bash
+uv run python scripts/audit_ocr.py --output artifacts/ocr-audit.json
+```
+
+Esta prueba mide recuperación de frases conocidas en documentos sintéticos.
+No mide precisión de clasificación ni calidad de OCR de todos los pliegos reales.
+Ver el alcance y los resultados en [ocr-review.md](ocr-review.md).

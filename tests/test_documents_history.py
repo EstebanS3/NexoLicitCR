@@ -75,7 +75,7 @@ def test_image_missing_ocr_is_explicit(tmp_path, monkeypatch):
     Image.new("RGB", (100, 100), "white").save(path)
     monkeypatch.setattr("nexolicitcr.extractor.shutil.which", lambda name: None)
     result = extract(path, 1)
-    assert result[0]["error"] == "OCR_FAILED_OR_UNAVAILABLE"
+    assert result[0]["error"] == "OCR_UNAVAILABLE"
     assert result[0]["method"] == "ocr"
 
 
@@ -172,3 +172,62 @@ def test_extractor_applies_rlimits_when_resource_is_available(monkeypatch):
         ("fsize", (64 * 1024 * 1024, 64 * 1024 * 1024)),
         ("as", (1024 * 1024 * 1024, 1024 * 1024 * 1024)),
     ]
+
+
+def test_reference_failure_recovers_without_stale_failure_or_removed_evidence(
+    store, settings, tmp_path, monkeypatch
+):
+    import hashlib
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+
+    from mongomock.gridfs import enable_gridfs_integration
+
+    from nexolicitcr.documents import DocumentService
+
+    enable_gridfs_integration()
+    source = tmp_path / "source.pdf"
+    digital_pdf(source)
+    payload = source.read_bytes()
+    failing = [True]
+    refs = [{"fileServerPath": "/files", "serverFileNm": "test.pdf"}]
+
+    def metadata(path, params, text=False):
+        return "https://www.sicop.go.cr/test" if text else refs
+
+    def fetch(url, target, cfg):
+        if failing[0]:
+            raise DocumentError("DOCUMENT_HTTP_FAILED")
+        target.write_bytes(payload)
+        return {
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "size": len(payload),
+            "media_type": "application/pdf",
+        }
+
+    @contextmanager
+    def session():
+        class Transaction:
+            def with_transaction(self, callback):
+                return callback(None)
+
+        yield Transaction()
+
+    monkeypatch.setattr(store.db.client, "start_session", session)
+    monkeypatch.setattr("nexolicitcr.documents.time.sleep", lambda _: None)
+    monkeypatch.setattr("nexolicitcr.documents.metadata_get", metadata)
+    monkeypatch.setattr("nexolicitcr.documents.download", fetch)
+    service = DocumentService(store, settings)
+    tender = SimpleNamespace(key="test:recover", source_id="test", sequence="00")
+    assert service.ingest_tender(tender) == ["failed"]
+    assert (
+        store.db.documents.find_one({"tender_key": tender.key})["error_code"]
+        == "DOCUMENT_HTTP_FAILED"
+    )
+    failing[0] = False
+    assert service.ingest_tender(tender) == ["ready"]
+    assert store.db.documents.count_documents({"tender_key": tender.key}) == 1
+    assert store.db.documents.find_one({"tender_key": tender.key})["current"] is True
+    refs.clear()
+    assert service.ingest_tender(tender) == []
+    assert store.db.documents.find_one({"tender_key": tender.key})["current"] is False

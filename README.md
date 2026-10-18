@@ -42,7 +42,7 @@ Completar `.env` localmente:
 | `ATLAS_AUTHDB` | Base de autenticación, normalmente `admin`. |
 | `APP_MODE` | `local` o `server`. |
 | `PUBLIC_ORIGIN` | Origen exacto del navegador; local: `http://localhost:8000`. |
-| `SICOP_TIMEZONE` | Vacío conserva fechas sin zona como pendientes; configurar una zona IANA solo después de validar su significado. |
+| `SICOP_TIMEZONE` | `America/Costa_Rica`: SICOP publica fechas sin offset en hora local ([validación](docs/source-validation.md)). Vacío las conserva como pendientes. |
 | `REDIS_URL` | Vacío deshabilita la caché; configurar un usuario Redis ACL propio en servidor. |
 
 `MONGO_MODE=atlas` es el valor predeterminado. TLS Atlas siempre está habilitado. No se admiten opciones que relajen la validación de certificados. `.env` nunca debe versionarse.

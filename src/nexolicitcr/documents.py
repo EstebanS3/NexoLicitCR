@@ -9,6 +9,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import time
 from datetime import timedelta
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit
@@ -17,8 +18,9 @@ import gridfs
 import httpx
 from gridfs.errors import FileExists
 
+from .extractor import VERSION as EXTRACTOR_VERSION
 from .models import Document, ExtractionPage
-from .sicop import BASE, SourceError
+from .sicop import BASE, HEADERS, SourceError, SourceRateLimited, retry_after_seconds
 from .storage import utcnow
 
 
@@ -90,18 +92,22 @@ def download(url, target, settings, client=None):
 
 
 def metadata_get(path, params, text=False):
+    try:
+        return _metadata_get(path, params, text)
+    except httpx.HTTPError:
+        raise DocumentError("DOCUMENT_METADATA_NETWORK_FAILED") from None
+
+
+def _metadata_get(path, params, text=False):
     with httpx.Client(timeout=20, follow_redirects=False, trust_env=False) as client:
         with client.stream(
             "GET",
             BASE + path,
             params=params,
-            headers={
-                "Origin": "https://www.sicop.go.cr",
-                "Referer": "https://www.sicop.go.cr/",
-                "Accept": "application/json",
-                "User-Agent": "Mozilla/5.0",
-            },
+            headers=HEADERS,
         ) as response:
+            if response.status_code == 429:
+                raise SourceRateLimited(retry_after_seconds(response.headers.get("retry-after")))
             if response.status_code != 200 or (
                 not text and "json" not in response.headers.get("content-type", "")
             ):
@@ -123,9 +129,22 @@ class DocumentService:
     def __init__(self, store, settings):
         self.store, self.settings = store, settings
         self.fs = gridfs.GridFS(store.db)
+        self._last_metadata_request = None
+
+    def _metadata(self, path, params, text=False):
+        if self._last_metadata_request is not None:
+            time.sleep(
+                max(
+                    0,
+                    self.settings.sicop_request_delay_seconds
+                    - (time.monotonic() - self._last_metadata_request),
+                )
+            )
+        self._last_metadata_request = time.monotonic()
+        return metadata_get(path, params, text)
 
     def ingest_tender(self, tender, guard=lambda session=None: None):
-        refs = metadata_get(
+        refs = self._metadata(
             "/bid/api/v1/public/epCartelFile/getCartelFilesById",
             {"cartelNo": tender.source_id, "cartelSeq": tender.sequence},
         )
@@ -143,21 +162,23 @@ class DocumentService:
                 self.store.db.documents.update_one(
                     {"_id": marker},
                     {
-                        "$setOnInsert": {
+                        "$set": {
                             "tender_key": tender.key,
                             "source_identity": identity,
                             "sha256": "",
                             "state": "omitted",
+                            "current": True,
                             "error_code": "FILE_COUNT_LIMIT",
                             "fetched_at": utcnow(),
                         }
                     },
                     upsert=True,
                 )
+                self.store.db.metadata.update_one({"_id": "corpus"}, {"$inc": {"generation": 1}})
                 states.append("omitted")
                 continue
             try:
-                location = metadata_get(
+                location = self._metadata(
                     "/comn/api/v1/public/comnFile/downloadWithPAR",
                     {"fileUrl": (source_path.rstrip("/") + "/" + name).lstrip("/")},
                     text=True,
@@ -165,8 +186,13 @@ class DocumentService:
                 if not isinstance(location, str):
                     raise DocumentError("DOCUMENT_DOWNLOAD_URL_INVALID")
                 document_id = self.ingest(tender.key, identity, location, guard)
+                guard()
+                if self.store.db.documents.delete_one({"_id": marker}).deleted_count:
+                    self.store.db.metadata.update_one(
+                        {"_id": "corpus"}, {"$inc": {"generation": 1}}
+                    )
                 states.append(self.store.db.documents.find_one({"_id": document_id})["state"])
-            except (DocumentError, httpx.HTTPError):
+            except (DocumentError, httpx.HTTPError) as exc:
                 guard()
                 self.store.db.documents.update_one(
                     {"_id": marker},
@@ -176,12 +202,16 @@ class DocumentService:
                             "source_identity": identity,
                             "sha256": "",
                             "state": "failed",
-                            "error_code": "DOCUMENT_PROCESSING_FAILED",
+                            "current": True,
+                            "error_code": str(exc)
+                            if isinstance(exc, DocumentError)
+                            else "DOCUMENT_NETWORK_FAILED",
                             "fetched_at": utcnow(),
                         }
                     },
                     upsert=True,
                 )
+                self.store.db.metadata.update_one({"_id": "corpus"}, {"$inc": {"generation": 1}})
                 states.append("failed")
         # References that disappeared must no longer contribute evidence.
         identities = [
@@ -194,7 +224,7 @@ class DocumentService:
             changed = self.store.db.documents.update_many(
                 {
                     "tender_key": tender.key,
-                    "current": True,
+                    "current": {"$ne": False},
                     "source_identity": {"$nin": identities},
                 },
                 {"$set": {"current": False}},
@@ -219,7 +249,12 @@ class DocumentService:
                 (tender_key + identity + metadata["sha256"]).encode()
             ).hexdigest()
             if self.store.db.documents.find_one(
-                {"_id": document_id, "state": "ready", "current": True}
+                {
+                    "_id": document_id,
+                    "state": "ready",
+                    "current": True,
+                    "extractor_version": EXTRACTOR_VERSION,
+                }
             ):
                 return document_id
             guard()
@@ -262,7 +297,9 @@ class DocumentService:
                     try:
                         code = process.wait(timeout=self.settings.extraction_timeout_seconds)
                     except subprocess.TimeoutExpired:
-                        if hasattr(os, "killpg"):
+                        if sys.platform == "win32":
+                            process.kill()
+                        elif hasattr(os, "killpg"):
                             os.killpg(process.pid, signal.SIGKILL)
                         else:
                             process.kill()
@@ -292,6 +329,10 @@ class DocumentService:
                     {"$set": {"current": False}},
                     session=session,
                 )
+                self.store.db.extracted_pages.delete_many(
+                    {"document_id": document_id, "page": {"$nin": [p["page"] for p in pages]}},
+                    session=session,
+                )
                 for page in pages:
                     self.store.db.extracted_pages.update_one(
                         {"document_id": document_id, "page": page["page"]},
@@ -309,6 +350,7 @@ class DocumentService:
                             "error_code": error,
                             "pages": len(pages),
                             "processed_at": utcnow(),
+                            "extractor_version": EXTRACTOR_VERSION,
                         }
                     },
                     session=session,
