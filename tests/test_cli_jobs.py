@@ -21,7 +21,7 @@ def test_sync_once_and_enqueue_share_jobs(store, settings, monkeypatch):
     assert CliRunner().invoke(app, ["sync", "--category", "invalid"]).exit_code != 0
 
 
-def test_api_owns_worker_only_in_local_mode(settings, monkeypatch):
+def test_api_owns_worker_only_in_local_mode(store, settings, monkeypatch):
     from contextlib import contextmanager
 
     events = []
@@ -35,12 +35,20 @@ def test_api_owns_worker_only_in_local_mode(settings, monkeypatch):
             events.append("stop")
 
     monkeypatch.setattr("nexolicitcr.cli.settings", lambda: settings)
-    monkeypatch.setattr("nexolicitcr.runtime.local_worker", worker_context)
-    monkeypatch.setattr("nexolicitcr.web.create_app", lambda cfg: object())
+    from fastapi.testclient import TestClient
 
-    def serve(*args, **kwargs):
-        events.append("web")
-        raise RuntimeError("server stopped")
+    from nexolicitcr.web import create_app
+
+    monkeypatch.setattr("nexolicitcr.web.local_worker", worker_context)
+    monkeypatch.setattr(
+        "nexolicitcr.web.create_app",
+        lambda cfg, **kwargs: create_app(cfg, store, **kwargs),
+    )
+
+    def serve(application, **kwargs):
+        with TestClient(application):
+            events.append("web")
+            raise RuntimeError("server stopped")
 
     monkeypatch.setattr("uvicorn.run", serve)
     assert CliRunner().invoke(app, ["api"]).exit_code != 0

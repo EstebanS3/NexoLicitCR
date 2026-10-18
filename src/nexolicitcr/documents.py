@@ -13,10 +13,11 @@ import time
 from datetime import timedelta
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit
+from uuid import uuid4
 
 import gridfs
 import httpx
-from gridfs.errors import FileExists
+from gridfs.errors import CorruptGridFile, FileExists, NoFile
 
 from .extractor import VERSION as EXTRACTOR_VERSION
 from .models import Document, ExtractionPage
@@ -130,6 +131,56 @@ class DocumentService:
         self.store, self.settings = store, settings
         self.fs = gridfs.GridFS(store.db)
         self._last_metadata_request = None
+
+    def _complete_blob(self, blob, metadata):
+        """A duplicate chunk is not proof that a complete, readable blob exists."""
+        if not blob:
+            return False
+        try:
+            with self.fs.get(blob) as source:
+                if source.length != metadata["size"]:
+                    return False
+                digest, size = hashlib.sha256(), 0
+                while chunk := source.read(65536):
+                    size += len(chunk)
+                    if size > metadata["size"]:
+                        return False
+                    digest.update(chunk)
+                return size == metadata["size"] and digest.hexdigest() == metadata["sha256"]
+        except (NoFile, CorruptGridFile):
+            return False
+
+    def _store_blob(self, path, metadata, guard):
+        preferred = metadata["sha256"]
+        if self._complete_blob(preferred, metadata):
+            return preferred
+        for candidate in self.store.db.fs.files.find(
+            {"metadata.sha256": preferred}, {"_id": 1}
+        ).limit(3):
+            if self._complete_blob(candidate["_id"], metadata):
+                return candidate["_id"]
+        for _ in range(3):
+            # Each writer owns its chunks, including GridFS's abort-on-conflict cleanup.
+            blob = f"{preferred}-{uuid4().hex}"
+            guard()
+            try:
+                with path.open("rb") as source:
+                    self.fs.put(
+                        source,
+                        _id=blob,
+                        filename=preferred,
+                        contentType=metadata["media_type"],
+                        metadata={"sha256": preferred},
+                    )
+            except FileExists:
+                # Reuse only an independently verified complete file.
+                if self._complete_blob(blob, metadata):
+                    return blob
+                continue
+            if self._complete_blob(blob, metadata):
+                return blob
+            raise DocumentError("DOCUMENT_STORAGE_INCOMPLETE")
+        raise DocumentError("DOCUMENT_STORAGE_CONFLICT")
 
     def _metadata(self, path, params, text=False):
         if self._last_metadata_request is not None:
@@ -248,35 +299,41 @@ class DocumentService:
             document_id = hashlib.sha256(
                 (tender_key + identity + metadata["sha256"]).encode()
             ).hexdigest()
-            if self.store.db.documents.find_one(
+            existing = self.store.db.documents.find_one(
                 {
                     "_id": document_id,
                     "state": "ready",
                     "current": True,
                     "extractor_version": EXTRACTOR_VERSION,
                 }
-            ):
+            )
+            if existing and self._complete_blob(existing.get("gridfs_id"), metadata):
                 return document_id
             guard()
-            self.store.db.documents.update_one(
-                {"_id": document_id},
-                {
-                    "$setOnInsert": {
-                        "tender_key": tender_key,
-                        "source_identity": identity,
-                        **metadata,
-                        "state": "processing",
-                        "fetched_at": utcnow(),
-                    }
-                },
-                upsert=True,
-            )
-            blob = metadata["sha256"]
-            try:
-                with path.open("rb") as source:
-                    self.fs.put(source, _id=blob, filename=blob, contentType=metadata["media_type"])
-            except FileExists:
-                pass
+
+            def prepare(session):
+                guard(session)
+                self.store.db.documents.update_one(
+                    {"_id": document_id},
+                    {
+                        "$setOnInsert": {
+                            "tender_key": tender_key,
+                            "source_identity": identity,
+                            **metadata,
+                            "fetched_at": utcnow(),
+                        },
+                        "$set": {"state": "processing", "error_code": None},
+                    },
+                    upsert=True,
+                    session=session,
+                )
+                self.store.db.metadata.update_one(
+                    {"_id": "corpus"}, {"$inc": {"generation": 1}}, upsert=True, session=session
+                )
+
+            with self.store.db.client.start_session() as session:
+                session.with_transaction(prepare)
+            blob = self._store_blob(path, metadata, guard)
             output = Path(directory) / "pages.json"
             try:
                 command = [
@@ -367,9 +424,46 @@ class DocumentService:
         # Read-only reconciliation: never delete a live/in-progress upload automatically.
         cutoff = utcnow() - timedelta(days=1)
         referenced = self.store.db.documents.distinct("gridfs_id")
-        return [
-            {"id": str(row["_id"]), "uploaded_at": row["uploadDate"].isoformat()}
+        report = [
+            {
+                "id": str(row["_id"]),
+                "kind": "unreferenced_file",
+                "uploaded_at": row["uploadDate"].isoformat(),
+            }
             for row in self.store.db.fs.files.find(
                 {"_id": {"$nin": referenced}, "uploadDate": {"$lt": cutoff}}
             )
         ]
+        # Missing manifests can belong to an active upload. Report them without deletion.
+        unfinished = self.store.db.fs.chunks.aggregate(
+            [
+                {
+                    "$lookup": {
+                        "from": "fs.files",
+                        "localField": "files_id",
+                        "foreignField": "_id",
+                        "as": "file",
+                    }
+                },
+                {"$match": {"file": []}},
+                {
+                    "$group": {
+                        "_id": "$files_id",
+                        "first_chunk": {"$min": "$_id"},
+                        "chunks": {"$sum": 1},
+                    }
+                },
+            ]
+        )
+        for row in unfinished:
+            started = getattr(row["first_chunk"], "generation_time", None)
+            report.append(
+                {
+                    "id": str(row["_id"]),
+                    "kind": "chunks_without_file",
+                    "chunks": row["chunks"],
+                    "uploaded_at": started.isoformat() if started else None,
+                    "older_than_one_day": started < cutoff if started else None,
+                }
+            )
+        return report

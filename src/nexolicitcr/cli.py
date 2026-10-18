@@ -1,5 +1,4 @@
 import getpass
-from contextlib import nullcontext
 
 import typer
 from pydantic import ValidationError
@@ -78,18 +77,16 @@ def api(
     """Iniciar web; server requiere TLS en un proxy de confianza."""
     import uvicorn
 
-    from .runtime import local_worker
     from .web import create_app
 
     cfg = settings()
-    with local_worker() if cfg.app_mode == "local" and with_worker else nullcontext():
-        uvicorn.run(
-            create_app(cfg),
-            host="127.0.0.1" if cfg.app_mode == "local" else "0.0.0.0",  # noqa: S104
-            port=port,
-            proxy_headers=False,
-            access_log=False,
-        )
+    uvicorn.run(
+        create_app(cfg, with_worker=with_worker),
+        host="127.0.0.1" if cfg.app_mode == "local" else "0.0.0.0",  # noqa: S104
+        port=port,
+        proxy_headers=False,
+        access_log=False,
+    )
 
 
 @app.command()

@@ -1,9 +1,10 @@
 import secrets
-from contextlib import asynccontextmanager
-from datetime import timedelta
+from contextlib import asynccontextmanager, nullcontext
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -18,14 +19,29 @@ from .cache import OptionalCache
 from .config import Settings
 from .discovery import matching_catalog, suggest
 from .jobs import JobQueue
-from .matching import Radar, deadline_status, normalized, score
+from .matching import Radar, deadline_status, normalized, tender_match
 from .models import CatalogItem, CompanyProfile
+from .runtime import local_worker
 from .sectors import SECTORS, combined_terms, selected_specialties
 from .security import DUMMY_HASH, PASSWORDS, check_password, valid_username, validate_password
 from .storage import ConflictError, Store, connect, token_hash, utcnow
 
 ROOT = Path(__file__).parent
 TEMPLATES = Jinja2Templates(directory=str(ROOT / "templates"))
+
+
+def cr_datetime(value):
+    if not isinstance(value, datetime):
+        return "Fecha desconocida"
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return (
+        value.astimezone(ZoneInfo("America/Costa_Rica")).strftime("%d/%m/%Y %H:%M")
+        + " (Costa Rica)"
+    )
+
+
+TEMPLATES.env.filters["cr_datetime"] = cr_datetime
 
 
 class RequestLimits:
@@ -60,7 +76,9 @@ class RequestLimits:
         await self.app(scope, limited_receive, send)
 
 
-def create_app(settings: Settings | None = None, store: Store | None = None):
+def create_app(
+    settings: Settings | None = None, store: Store | None = None, *, with_worker: bool = False
+):
     settings = settings or Settings()
     mongo = None
     if store is None:
@@ -73,10 +91,14 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
 
     @asynccontextmanager
     async def lifespan(app):
-        yield
-        cache.close()
-        if mongo is not None:
-            mongo.close()
+        try:
+            # Uvicorn retransmite SIGTERM después del lifespan: limpiar el worker antes.
+            with local_worker() if settings.app_mode == "local" and with_worker else nullcontext():
+                yield
+        finally:
+            cache.close()
+            if mongo is not None:
+                mongo.close()
 
     app = FastAPI(
         title="NexoLicitCR",
@@ -754,26 +776,7 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
             record=tender,
             tender=tender["payload"],
             current_status=deadline_status(tender["payload"]),
-            match=score(
-                tender["payload"],
-                matching_catalog(store.catalog()),
-                list(
-                    store.db.extracted_pages.find(
-                        {
-                            "document_id": {
-                                "$in": store.db.documents.distinct(
-                                    "_id",
-                                    {
-                                        "tender_key": key,
-                                        "current": True,
-                                        "state": {"$in": ["ready", "partial"]},
-                                    },
-                                )
-                            }
-                        }
-                    )
-                ),
-            ),
+            match=tender_match(store, key, tender["payload"], matching_catalog(store.catalog())),
             documents=list(store.db.documents.find({"tender_key": key})),
             offers=list(store.db.offers.find({"tender_key": key}).sort("fetched_at", -1).limit(50)),
             decision=store.db.decisions.find_one({"company": "company", "tender_key": key}) or {},
@@ -830,6 +833,7 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
             first_search=not rows
             and not store.db.jobs.find_one({"installation_id": settings.installation_id}),
             has_saved_tenders=bool(rows),
+            query_summary=queue.summary(),
             csrf=current["csrf"],
             rows=filtered[(page - 1) * 25 : page * 25],
             total=len(filtered),

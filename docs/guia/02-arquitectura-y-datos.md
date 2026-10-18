@@ -6,6 +6,8 @@ Esta guía describe la implementación de la rama `dev`, revisada sobre el commi
 
 La propuesta técnica combina un backend modular en Python, MongoDB como persistencia principal, documentos en GridFS, un worker con trabajos recuperables y Redis opcional para acelerar el radar. La afinidad se calcula mediante reglas explícitas y versionadas. Las sugerencias del perfil también son deterministas: no hay un modelo generativo ni un clasificador entrenado tomando decisiones comerciales.
 
+**Actualización de integridad GridFS:** las cargas nuevas usan identificadores independientes para evitar conflictos entre fragmentos de escritores concurrentes; `metadata.sha256` tiene índice para reutilizar archivos completos verificados. Se admiten blobs históricos identificados por hash. El estado listo exige verificar contenido y tamaño; un reintento repara referencias incompletas sin borrar fragmentos activos. Radar y detalle comparten el cálculo de evidencia pendiente.
+
 ## 1. La arquitectura en una página
 
 El sistema permite que una empresa defina lo que ofrece, consulte concursos de SICOP, incorpore evidencia documental y ordene sus oportunidades por afinidad. Las decisiones de seguimiento pertenecen a la empresa y se conservan independientemente de los recálculos.
@@ -112,7 +114,7 @@ El diagrama representa **relaciones lógicas**. MongoDB no impone claves foráne
 | `tenders` | `_id=source_id:sequence`, `hash`, `payload`, `observed_at`, `status`, `deadline_utc`, `source_url` | Snapshot vigente de cada concurso |
 | `tender_versions` | Pareja `key`, `hash`; `payload`, `observed_at` | Contenido histórico insertado una sola vez por hash |
 | `documents` | `tender_key`, `source_identity`, `sha256`, `state`, `current`, `gridfs_id`, `extractor_version` | Versión del anexo, resultado de extracción o marcador de error/omisión |
-| `fs.files` | `_id=sha256`, nombre hash, tipo y metadatos GridFS | Cabecera del binario almacenado |
+| `fs.files` | `_id` independiente por carga, nombre hash, `metadata.sha256`, tipo y metadatos GridFS | Cabecera del binario almacenado |
 | `fs.chunks` | Referencia al archivo, secuencia de fragmento y contenido | Fragmentos binarios gestionados por GridFS |
 | `extracted_pages` | `document_id`, `page`, `text`, `method`, `error`, `extractor_version` | Evidencia de una página concreta |
 | `matches` | Empresa, revisión de catálogo, concurso, hash, reglas y generación documental | Resultado derivado con razones por producto y fecha de cálculo |

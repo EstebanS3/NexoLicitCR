@@ -4,6 +4,8 @@
 
 Este capítulo propone cómo convertir la base implementada en un producto evaluado con empresas. Las fases, métricas, hipótesis comerciales y criterios que siguen son propuestas. No representan compromisos de entrega, ingresos, resultados de usuarios ni funciones ya disponibles.
 
+**Entrega universitaria actual:** rige [alcance-academico.md](../alcance-academico.md), sin evaluación humana por pares obligatoria. Las fases comerciales de este capítulo, los estudios de relevancia o con empresas, Redis real y Docker son ampliaciones opcionales.
+
 ## 1. Del software que funciona al producto que ayuda
 
 La versión documentada reúne un recorrido funcional, persistencia, ingesta, extracción documental y seguimiento. El próximo salto de calidad consiste en demostrar que una persona puede usar ese conjunto para revisar oportunidades con mayor claridad y continuidad.
@@ -46,7 +48,7 @@ Criterio de salida propuesto: recorridos documentados, obstáculos reproducibles
 
 Objetivo: evaluar si las razones del radar ayudan a seleccionar concursos que merecen revisión.
 
-Trabajo propuesto: formar un conjunto de 30 a 50 pares empresa-concurso como primera evaluación exploratoria, con perfiles confirmados y evidencia disponible. Dos personas deberían revisar los casos ambiguos y registrar el motivo de su decisión. Ese tamaño inicial sirve para descubrir errores, no para representar todo el mercado.
+Ampliación opcional: definir un conjunto de evaluación empresa-concurso, sin tamaño comprometido en la entrega universitaria, con perfiles confirmados y evidencia disponible. Dos personas deberían revisar los casos ambiguos y registrar el motivo de su decisión. Ese tamaño inicial sirve para descubrir errores, no para representar todo el mercado.
 
 Criterio de salida propuesto: etiquetas, protocolo, resultados por actividad y análisis de falsos positivos y falsos negativos. No basta con aumentar el número de coincidencias: debe mejorar su utilidad para la tarea.
 

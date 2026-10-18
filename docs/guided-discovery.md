@@ -1,5 +1,7 @@
 # Propuesta: la empresa cuenta qué hace, NexoLicitCR orienta su búsqueda
 
+**Alcance vigente desde el 18/10/2026:** [entrega universitaria](alcance-academico.md). El feedback obligatorio guarda decisiones y notas; las propuestas automáticas de ajuste y la evaluación con empresas son opcionales. El recorrido y los ajustes previos de este documento conservan su contexto histórico.
+
 Estado: alcance aprobado y primera demo implementada en `/discover`. Incluye actividad libre, sugerencias deterministas editables, confirmación con control de concurrencia, perfil persistente, oportunidades explicadas y actualización SICOP con alcance confirmado. Se conserva el catálogo y el radar existentes. Los ajustes sugeridos a partir del feedback y la evaluación humana siguen pendientes.
 
 ## Punto de entrada

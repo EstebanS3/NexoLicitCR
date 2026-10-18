@@ -217,6 +217,18 @@ def score(tender, catalog, pages=(), *, incomplete_documents=False):
     }
 
 
+def tender_match(store, key, tender, catalog):
+    """Use the same current evidence and completeness on radar and detail pages."""
+    documents = list(store.db.documents.find({"tender_key": key, "current": {"$ne": False}}))
+    readable = [
+        d["_id"] for d in documents if d.get("current") and d["state"] in {"ready", "partial"}
+    ]
+    pages = list(store.db.extracted_pages.find({"document_id": {"$in": readable}}))
+    return score(
+        tender, catalog, pages, incomplete_documents=any(d["state"] != "ready" for d in documents)
+    )
+
+
 class Radar:
     def __init__(self, store, cache):
         self.store, self.cache = store, cache
@@ -250,30 +262,7 @@ class Radar:
             if not self.valid_cached_rows(rows):
                 rows = []
                 for row in self.store.db.tenders.find({}).sort("_id", 1):
-                    document_states = list(
-                        self.store.db.documents.find(
-                            {
-                                "tender_key": row["_id"],
-                                "current": {"$ne": False},
-                            }
-                        )
-                    )
-                    docs = [
-                        d
-                        for d in document_states
-                        if d.get("current") and d["state"] in {"ready", "partial"}
-                    ]
-                    pages = list(
-                        self.store.db.extracted_pages.find(
-                            {"document_id": {"$in": [d["_id"] for d in docs]}}
-                        )
-                    )
-                    match = score(
-                        row["payload"],
-                        catalog,
-                        pages,
-                        incomplete_documents=any(d["state"] != "ready" for d in document_states),
-                    )
+                    match = tender_match(self.store, row["_id"], row["payload"], catalog)
                     identity = {
                         "company": "company",
                         "catalog_revision": catalog["revision"],
@@ -302,9 +291,17 @@ class Radar:
             decisions = {
                 d["tender_key"]: d for d in self.store.db.decisions.find({"company": "company"})
             }
+            # Observation dates change on identical reimports, without invalidating matches.
+            observations = {
+                row["_id"]: row.get("observed_at")
+                for row in self.store.db.tenders.find(
+                    {"_id": {"$in": [row["key"] for row in rows]}}, {"observed_at": 1}
+                )
+            }
             for row in rows:
                 row["current_status"] = deadline_status(row["tender"])
                 row["decision"] = decisions.get(row["key"], {})
+                row["observed_at"] = observations.get(row["key"])
             return sorted(rows, key=lambda r: (-r["match"]["score"], r["key"]))
         raise ConflictError("Los datos cambiaron durante la consulta; recargá el radar.")
 

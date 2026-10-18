@@ -1,0 +1,47 @@
+{
+  "kind": "offline_matching_microbenchmark",
+  "limitations": [
+    "synthetic data",
+    "one catalog item",
+    "in-memory Redis double",
+    "no MongoDB I/O",
+    "no HTTP or OCR",
+    "p95 is descriptive with few samples"
+  ],
+  "results": [
+    {
+      "tenders": 100,
+      "catalog_items": 1,
+      "uncached": {
+        "samples": 5,
+        "p50_ms": 3.605,
+        "p95_ms": 4.311
+      },
+      "memory_cache_read": {
+        "samples": 5,
+        "p50_ms": 0.244,
+        "p95_ms": 0.336
+      },
+      "cache_stored": true,
+      "equivalent": true,
+      "json_bytes": 43491
+    },
+    {
+      "tenders": 1000,
+      "catalog_items": 1,
+      "uncached": {
+        "samples": 5,
+        "p50_ms": 36.387,
+        "p95_ms": 37.054
+      },
+      "memory_cache_read": {
+        "samples": 5,
+        "p50_ms": 2.809,
+        "p95_ms": 3.372
+      },
+      "cache_stored": true,
+      "equivalent": true,
+      "json_bytes": 435891
+    }
+  ]
+}
