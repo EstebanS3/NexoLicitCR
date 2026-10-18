@@ -1,5 +1,7 @@
 # Operación y validación
 
+**Alcance vigente:** [entrega universitaria](alcance-academico.md). Docker/Compose y la validación de un segundo backend o servidor Redis son opcionales.
+
 ## Arranque bajo demanda
 
 ```bash
@@ -34,9 +36,11 @@ uv run nexolicit document-orphans
 uv run nexolicit import-offers CARTEL:SECUENCIA --lot 1
 ```
 
+`document-orphans` reporta archivos completos sin referencia de más de un día y también fragmentos sin manifiesto, cuya carga podría estar activa. No elimina nada. GridFS verifica contenido/tamaño antes de publicar; un reintento de anexos repara un documento listo cuyo original falte usando otra identidad de carga. Ejecutar `init-db` para incorporar el índice de `fs.files.metadata.sha256` en instalaciones existentes.
+
 El histórico es por partida y conserva importes presentados; una consulta inválida falla, no se convierte en “sin ofertas”. RF-16 (comparables adjudicados) permanece indisponible hasta validar una fuente final por línea/unidad/moneda.
 
-## Servidor con Atlas externo
+## Servidor con Atlas externo y Docker · opcional
 
 Configurar `.env` con `MONGO_MODE=atlas`, credenciales separadas, `APP_MODE=server`, `PUBLIC_ORIGIN=https://nombre-real`, `ENVIRONMENT=production` e `INSTALLATION_ID` exclusivo. Atlas debe permitir la IP saliente y el usuario debe limitarse a la base asignada. TLS Atlas obligatorio.
 
@@ -68,7 +72,7 @@ NEXO_TEST_LOCAL=1 NEXO_TEST_DATABASE=nexolicit_test_local uv run pytest -m integ
 NEXO_TEST_ATLAS=1 NEXO_TEST_DATABASE=nexolicit_test_integration uv run pytest -m integration
 ```
 
-Los tests con mongomock son evidencia de lógica, no de transacciones/recuperación física real. `tests/test_restart_integration.py` (marcado `integration`) levanta `nexolicit api` como proceso real, registra la cuenta, inicia sesión y guarda un ítem del catálogo; mata el proceso sin apagado ordenado, lo vuelve a levantar y comprueba con la misma cookie que la sesión y el catálogo persisten. Tras cerrar sesión y reiniciar otra vez, el token revocado se rechaza en el servidor. Requiere una base de prueba sin administrador y restaura el catálogo al terminar. La recuperación física está en `tests/test_worker_recovery_integration.py` (marcado `integration`): un worker real se ejecuta como proceso aparte, se termina a mitad de una consulta sin limpieza, otro worker recupera el job cuando vence su lease (15 s) conservando los checkpoints, y un worker vencido no logra confirmar ninguna escritura dentro de una transacción real. Usa sus propios `installation_id` y concursos, los borra al terminar, y falla si la base de prueba ya contiene concursos activos de obras. No se inicia MongoDB ni API automáticamente desde pytest. Para evaluar calidad se necesitan 30–50 pares catálogo/concurso etiquetados por humanos; no sustituirlos por etiquetas generadas. La prueba de equivalencia de caché usa un doble Redis con caída/recuperación; la latencia real requiere un Redis de prueba.
+Los tests con mongomock son evidencia de lógica, no de transacciones/recuperación física real. `tests/test_restart_integration.py` (marcado `integration`) levanta `nexolicit api` como proceso real, registra la cuenta, inicia sesión y guarda un ítem del catálogo; mata el proceso sin apagado ordenado, lo vuelve a levantar y comprueba con la misma cookie que la sesión y el catálogo persisten. Tras cerrar sesión y reiniciar otra vez, el token revocado se rechaza en el servidor. Requiere una base de prueba sin administrador y restaura el catálogo al terminar. La recuperación física está en `tests/test_worker_recovery_integration.py` (marcado `integration`): un worker real se ejecuta como proceso aparte, se termina a mitad de una consulta sin limpieza, otro worker recupera el job cuando vence su lease (15 s) conservando los checkpoints, y un worker vencido no logra confirmar ninguna escritura dentro de una transacción real. Usa sus propios `installation_id` y concursos, los borra al terminar, y falla si la base de prueba ya contiene concursos activos de obras. Pytest no inicia MongoDB; las pruebas de reinicio sí administran su propio proceso API. Para la entrega universitaria se revisan manualmente 10–20 pares perfil/concurso como evaluación exploratoria, sin sustituir etiquetas por datos generados. Un estudio con empresas y 30–50 o más pares es opcional. La prueba de equivalencia de caché usa un doble Redis con caída/recuperación; la latencia real requiere un Redis de prueba.
 
 ### Mantenimiento automático de la cola
 

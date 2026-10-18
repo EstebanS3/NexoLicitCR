@@ -1,0 +1,21 @@
+<section class="panel" aria-labelledby="query-freshness">
+  <h2 id="query-freshness">Actualidad de los resultados</h2>
+  {% set successful = query_summary.successful %}
+  {% set latest = query_summary.latest %}
+  {% set partial = query_summary.partial %}
+  {% if successful %}
+    <p>Última consulta exitosa: <strong>{{ successful.updated_at|cr_datetime }}</strong>.</p>
+    <p class="fine-print">Alcance: {{ {'all':'todos los rubros','bienes':'bienes','servicios':'servicios','obras':'obras'}.get(successful.payload.category, 'rubro desconocido') }}; hasta {{ successful.payload.limit }} recientes y hasta esa cantidad de activos guardados por rubro. <a href="/jobs/{{ successful._id }}/view">Ver consulta →</a></p>
+  {% else %}
+    <p>Todavía no hay una consulta exitosa registrada en esta instalación.</p>
+  {% endif %}
+  {% if partial and (not successful or partial.updated_at > successful.updated_at) %}
+    <p>Actualización parcial: {{ partial.updated_at|cr_datetime }}. Conservamos {{ partial.progress }} concursos procesados durante ese recorrido. <a href="/jobs/{{ partial._id }}/view">Revisar avance →</a></p>
+  {% endif %}
+  {% if latest and latest.status in ['failed', 'canceled', 'retry_wait'] %}
+    <p class="notice">La última consulta no se completó{% if latest.status == 'retry_wait' %} y está esperando un reintento{% endif %}. Se muestran los concursos guardados; este estado no significa que no existan oportunidades. <a href="/jobs/{{ latest._id }}/view">Ver estado →</a></p>
+  {% elif latest and latest.status in ['queued', 'running'] %}
+    <p class="notice">Hay una consulta {{ 'en cola' if latest.status == 'queued' else 'en curso' }}. Los resultados actuales corresponden a los datos ya guardados. <a href="/jobs/{{ latest._id }}/view">Ver avance →</a></p>
+  {% endif %}
+  <p class="fine-print">Cada concurso muestra su última verificación. Las consultas son acotadas y no acreditan cobertura total ni la misma antigüedad para todo el corpus.</p>
+</section>

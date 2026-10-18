@@ -1,3 +1,53 @@
+# Estado verificable de la entrega universitaria
+
+Actualizado el 18 de octubre de 2026. Rige [alcance-academico.md](alcance-academico.md) y las [historias revisadas](historias/README.md). Docker/Compose son opcionales. Cambios propuestos para revisión sobre dev; las issues permanecen abiertas hasta aceptación.
+
+## Evidencia de esta revisión
+
+- Suite sin integración: **346 pruebas aprobadas**, 8 de integración deseleccionadas, Python 3.12.15.
+- Suite con MongoDB real: **8 pruebas aprobadas**, 346 deseleccionadas, sin saltos. Servidor MongoDB 8.0.32 autenticado y replica set de un nodo en una base temporal aislada; API/worker y servidor temporal detenidos al terminar.
+- Integración comprueba transacciones/rollback, reinicio físico de API y sesión/catálogo, recuperación física de worker, OCR/GridFS y recuperación de un documento previamente marcado listo con fragmentos sin manifiesto.
+- Nuevas regresiones: archivo inexistente/corrupto, conflicto de carga, reparación idempotente, rechazo de publicación sin blob íntegro y reporte de fragmentos sin borrado; completitud igual en radar/detalle y actualidad de concursos con caché caliente.
+- Microbenchmark de cinco muestras con doble en memoria: a 100 concursos, cálculo p50 3,605 ms y lectura p50 0,244 ms; a 1.000, 36,387 ms y 2,809 ms. Ambos almacenan caché y producen resultados equivalentes. [Resultado completo](benchmarks/matching-academic.json).
+- El benchmark no mide Redis real, MongoDB, HTTP ni OCR. Un bypass deja la lectura de caché nula; `--counts 100 10000` es la ampliación opcional.
+- No se consultó SICOP ni se modificó el corpus, perfil, credenciales o servicios existentes del usuario para estas pruebas.
+
+## Matriz actual
+
+| Historia | Evidencia técnica disponible | Pendiente obligatorio |
+|---|---|---|
+| NLC-01 | Contratos, fixtures y muestra SICOP fechada en source-validation.md. | Aceptación de la evidencia y sus límites. |
+| NLC-02 | Monolito, configuración, índices, MongoDB local real y dependencias bloqueadas. | Aceptación del entorno documentado. |
+| NLC-03 | Auth/perfil/catálogo, concurrencia, errores y persistencia tras reinicio real. | Recorrido manual de escritorio/móvil y teclado. |
+| NLC-04 | Ingesta limitada, versiones, reintentos y radar con consulta exitosa, alcance, parcial/fallo y última verificación. | Aceptación del recorrido completo. |
+| NLC-05 | Claim, leases, fencing, checkpoints, cancelación y recuperación física probada. | Demo manual de inicio/cierre del worker local con la API. |
+| NLC-06 | Verificación íntegra de GridFS, identidad por carga, reparación de referencias antiguas y reporte sin borrado. OCR en entorno definido. | Aceptación de evidencia/descarga en la demo. |
+| NLC-07 | Razones, decisiones persistentes y completitud compartida por radar y detalle. | Aceptación visual de las explicaciones. |
+| NLC-08 | Invalidación/fallback, tres modos con doble Redis y microbenchmark 100/1.000. | Aceptación de los resultados y sus límites. |
+| NLC-09 | Parser y CLI de ofertas presentadas, con comparables bloqueados. | Ninguno para la entrega obligatoria: historia opcional. |
+| NLC-10 | Suite automática e integración real; documentación y benchmark. | E2E completo documentado, revisión básica de UI y 10–20 pares revisados por humanos con métricas exploratorias. |
+
+Quedan fuera de la aceptación obligatoria Docker, un segundo backend Atlas/local, Redis real, operación de producción, cobertura multiplataforma completa, estudio con empresas, 30–50 pares y comparables adjudicados. No se consideran implementados por haberlos movido a ampliaciones.
+
+## Cómo reproducir
+
+```bash
+uv sync --frozen
+uv run ruff check src tests scripts
+uv run ruff format --check src tests scripts
+uv run pytest -m 'not integration'
+uv run python scripts/check_publishable.py
+uv run python scripts/benchmark_matching.py --output artifacts/matching-academic.json
+# Solo con MongoDB local configurado y una base descartable exclusiva:
+NEXO_TEST_LOCAL=1 NEXO_TEST_DATABASE=nexolicit_test_local uv run pytest -m integration
+```
+
+Actualizar índices con `uv run nexolicit init-db` en instalaciones existentes. Para reparar un documento antiguo, volver a consultar con anexos; no se ejecuta una descarga histórica masiva. `document-orphans` reporta posibles cargas activas y nunca las elimina.
+
+## Registro histórico hasta el 17 de octubre
+
+Los apartados siguientes conservan los resultados y pendientes de entregas previas. Sus cifras y requisitos anteriores no reemplazan el alcance académico vigente.
+
 # Estado verificable del planning
 
 Actualizado: 13 de octubre de 2026. Implementación propuesta para revisión, sin despliegue ni servicios permanentes iniciados. Los criterios con validación externa pendiente se mantienen abiertos; generar código no equivale a validar la fuente o la infraestructura.

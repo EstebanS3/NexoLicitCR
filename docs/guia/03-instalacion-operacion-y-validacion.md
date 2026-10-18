@@ -31,6 +31,8 @@ Las dependencias Python, rangos y herramientas de desarrollo están en [pyprojec
 
 La combinación MongoDB local + aplicación en servidor es rechazada por la configuración. El [Compose incluido](../../compose.yaml) impone `APP_MODE=server` y `MONGO_MODE=atlas`: cambiar únicamente esos valores en `.env` no lo convierte en un despliegue local de MongoDB. Tampoco incluye un servicio MongoDB.
 
+**Entrega universitaria:** [alcance-academico.md](../alcance-academico.md). Basta un entorno MongoDB real; Docker, Atlas como segundo entorno y Redis real son opcionales. Los procedimientos de servidor siguientes se conservan como ampliación.
+
 ## 2. Primer arranque con Atlas
 
 ### Preparar el entorno
@@ -328,9 +330,9 @@ La versión del extractor es `pdf-ocr-v2`. Un documento guardado con otra versi�
 uv run nexolicit document-orphans
 ```
 
-Este comando solo informa candidatos de GridFS con más de un día y sin referencias `gridfs_id` desde documentos. No elimina archivos ni asegura que cada candidato pueda borrarse: una carga interrumpida o todavía relevante requiere inspección. La limpieza debe diseñarse aparte y probarse con respaldo.
+Este comando informa archivos completos de GridFS con más de un día y sin referencias `gridfs_id`, y también fragmentos sin manifiesto. Estos últimos pueden ser cargas activas: se reportan sin borrado, con edad estimada cuando el ObjectId lo permite. No declara segura ninguna limpieza. Un reintento de anexos usa una identidad nueva y verifica el blob completo antes de publicar; también repara referencias antiguas marcadas listas sin archivo disponible.
 
-## 7. Despliegue con Docker y Atlas externo
+## 7. Despliegue con Docker y Atlas externo · opcional
 
 Antes de usar Compose, configurar `.env` con credenciales Atlas, `PUBLIC_ORIGIN=https://nombre-real`, `ENVIRONMENT=production` e `INSTALLATION_ID` exclusivo. Compose establece el modo servidor y Atlas independientemente de los valores locales del archivo.
 
@@ -568,9 +570,9 @@ uv run python scripts/benchmark_matching.py --output artifacts/matching-benchmar
 uv run python scripts/audit_ocr.py --output artifacts/ocr-audit.json
 ```
 
-El primer script es un microbenchmark sin conexión de cálculo y serialización; no mide red MongoDB, Redis real, latencia de SICOP ni capacidad concurrente del servidor. El segundo genera documentos sintéticos y mide recuperación de frases conocidas mediante OCR a través de los sectores comerciales; requiere los binarios y una fuente compatible. No mide calidad universal de pliegos reales ni precisión comercial del ranking.
+El primer script usa por defecto 100 y 1.000 concursos; `--counts 100 10000` conserva la ampliación de escala. Si hay miss/bypass, el tiempo de lectura de caché se deja nulo y no se presenta como mejora. Es un microbenchmark sin conexión de cálculo y serialización; no mide red MongoDB, Redis real, latencia de SICOP ni capacidad concurrente del servidor. El segundo genera documentos sintéticos y mide recuperación de frases conocidas mediante OCR a través de los sectores comerciales; requiere los binarios y una fuente compatible. No mide calidad universal de pliegos reales ni precisión comercial del ranking.
 
-Para evaluar la utilidad del radar hacen falta pares de catálogo/concurso etiquetados por personas y criterios de aceptación acordados. El repositorio propone reunir 30–50 pares para esa evaluación. Las etiquetas inventadas automáticamente no sustituyen esa referencia humana. Un benchmark rápido y una suite aprobada son evidencias distintas de una validación con usuarios.
+Para evaluar la utilidad del radar hacen falta pares de catálogo/concurso etiquetados por personas y criterios de aceptación acordados. La entrega universitaria requiere una muestra exploratoria de 10–20 pares revisados manualmente; 30–50 o más pares y la evaluación con empresas son una ampliación opcional. Las etiquetas inventadas automáticamente no sustituyen esa referencia humana. Un benchmark rápido y una suite aprobada son evidencias distintas de una validación con usuarios.
 
 ### Registro sugerido de una validación
 

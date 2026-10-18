@@ -4,6 +4,8 @@
 
 Este capítulo propone cómo convertir la base implementada en un producto evaluado con empresas. Las fases, métricas, hipótesis comerciales y criterios que siguen son propuestas. No representan compromisos de entrega, ingresos, resultados de usuarios ni funciones ya disponibles.
 
+**Entrega universitaria actual:** rige [alcance-academico.md](../alcance-academico.md), con muestra exploratoria obligatoria de 10–20 pares revisados manualmente. Las fases comerciales de este capítulo, la evaluación con empresas, 30–50 pares, Redis real y Docker son ampliaciones opcionales.
+
 ## 1. Del software que funciona al producto que ayuda
 
 La versión documentada reúne un recorrido funcional, persistencia, ingesta, extracción documental y seguimiento. El próximo salto de calidad consiste en demostrar que una persona puede usar ese conjunto para revisar oportunidades con mayor claridad y continuidad.

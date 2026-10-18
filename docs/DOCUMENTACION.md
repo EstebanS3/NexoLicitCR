@@ -8,6 +8,8 @@ Documentación integral de producto, experiencia, arquitectura y operación. Est
 - **Fecha editorial:** 18 de octubre de 2026, Costa Rica.
 - **Fuentes:** código del repositorio, pruebas y documentos de validación existentes. No se realizó una nueva consulta a SICOP para redactar la documentación.
 
+**Alcance de entrega vigente:** [entrega universitaria](alcance-academico.md) e [historias revisadas](historias/README.md). Docker es opcional; la evaluación con empresas, los comparables y la validación extensa de infraestructura son ampliaciones. La evidencia de esta revisión se registra en [planning-status.md](planning-status.md); las cifras editoriales de abajo conservan su contexto histórico.
+
 ## Recorrido de lectura
 
 | Capítulo | Contenido | Lectura recomendada para |

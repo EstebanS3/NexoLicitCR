@@ -129,5 +129,6 @@ def test_real_ocr_gridfs_transaction_and_match(tmp_path, monkeypatch, term):
             docs = list(store.db.documents.find({"tender_key": marker}))
             store.db.extracted_pages.delete_many({"document_id": {"$in": [d["_id"] for d in docs]}})
             store.db.documents.delete_many({"tender_key": marker})
-            if service.fs.exists(digest):
-                service.fs.delete(digest)
+            for blob in {d.get("gridfs_id") for d in docs} - {None}:
+                if service.fs.exists(blob):
+                    service.fs.delete(blob)

@@ -42,10 +42,19 @@ def measure(action, samples):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--samples", type=int, default=5)
+    parser.add_argument(
+        "--counts",
+        nargs="+",
+        type=int,
+        default=[100, 1000],
+        help="Tamaños; 100/1.000 para la entrega académica, 10.000 como ampliación.",
+    )
     parser.add_argument("--output", type=Path, default=Path("artifacts/matching-benchmark.json"))
     args = parser.parse_args()
     if not 3 <= args.samples <= 100:
         parser.error("samples must be 3..100")
+    if any(not 1 <= count <= 10000 for count in args.counts):
+        parser.error("counts must be 1..10000")
     data = json.loads(Path("tests/fixtures/tender.json").read_text())
     tender = normalize(data["listing"], data["detail"], data["lines"], "servicios").model_dump(
         mode="json"
@@ -62,7 +71,7 @@ def main():
         atlas_clave="fixture-only",
     )
     measurements = []
-    for count in (100, 10000):
+    for count in dict.fromkeys(args.counts):
         cache = OptionalCache(cfg, MemoryCache())
         key = cache.key("benchmark", 1, 1, "v1", {"count": count})
 
@@ -78,7 +87,7 @@ def main():
                 "tenders": count,
                 "catalog_items": 1,
                 "uncached": cold,
-                "memory_cache_read": warm,
+                "memory_cache_read": warm if cached is not None else None,
                 "cache_stored": cached is not None,
                 "equivalent": cached == rows if cached is not None else None,
                 "json_bytes": len(

@@ -21,7 +21,9 @@ NexoLicitCR busca acercar las compras públicas de Costa Rica a las pequeñas y 
 
 ![Estructura de datos MongoDB](docs/assets/mongodb-schema.png)
 
-Ver [arquitectura y librerías](docs/architecture.md), [operación y Docker](docs/operations.md) y [estado verificable de los issues](docs/planning-status.md).
+**Entrega universitaria:** [alcance obligatorio y ampliaciones opcionales](docs/alcance-academico.md), con [historias actualizadas](docs/historias/README.md). Se demuestra un entorno MongoDB real; Docker/Compose, Redis real, validación extensa de infraestructura y evaluación con empresas son opcionales.
+
+Ver [arquitectura y librerías](docs/architecture.md), [operación y Docker opcional](docs/operations.md) y [estado verificable de los issues](docs/planning-status.md).
 
 **Documentación integral:** [guía extensa en Markdown](docs/DOCUMENTACION.md). Incluye propuesta de valor, experiencia, arquitectura, instalación, operación y evolución, con una narrativa preparada para presentar el proyecto.
 
@@ -125,7 +127,7 @@ Para verificar Atlas de forma explícita, configurar `.env` y una base de prueba
 NEXO_TEST_ATLAS=1 NEXO_TEST_DATABASE=nexolicit_test_integration uv run pytest -m integration
 ```
 
-La prueba crea índices y catálogo inicial si faltan; limpia únicamente los documentos de concursos que ella creó, nunca toda la base. Usar una base descartable dedicada. La lógica de Redis se prueba con un doble; OCR escaneado/mixto real, Redis real y Atlas requieren validación adicional.
+La prueba crea índices y catálogo inicial si faltan; limpia únicamente los documentos de concursos que ella creó, nunca toda la base. Usar una base descartable dedicada. La lógica de Redis se prueba con un doble. La entrega académica puede usar MongoDB local real; Redis real y un segundo entorno Atlas son ampliaciones opcionales. La evidencia OCR y sus límites están en [ocr-review.md](docs/ocr-review.md).
 
 ## Privacidad y límites
 
