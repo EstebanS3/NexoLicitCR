@@ -78,3 +78,38 @@ def test_worker_recovers_after_mongo_outage(store, settings, monkeypatch):
     monkeypatch.setattr("time.sleep", lambda seconds: events.append("wait"))
     assert CliRunner().invoke(app, ["worker"]).exit_code == 0
     assert events == ["claim", "wait", "claim"]
+
+
+def test_api_container_binding_preserves_local_default(settings, monkeypatch):
+    monkeypatch.setattr("nexolicitcr.cli.settings", lambda: settings)
+    monkeypatch.setattr("nexolicitcr.web.create_app", lambda *args, **kwargs: object())
+    bindings = []
+    monkeypatch.setattr("uvicorn.run", lambda app, **kwargs: bindings.append(kwargs["host"]))
+    runner = CliRunner()
+    assert runner.invoke(app, ["api", "--no-worker"]).exit_code == 0
+    assert runner.invoke(app, ["api", "--host", "0.0.0.0", "--no-worker"]).exit_code == 0  # noqa: S104
+    assert bindings == ["127.0.0.1", "0.0.0.0"]  # noqa: S104
+    assert runner.invoke(app, ["api", "--host", "invalid.example"]).exit_code == 2
+    assert len(bindings) == 2
+
+
+def test_worker_logs_queue_events_without_signed_download_urls(monkeypatch, caplog):
+    import logging
+
+    import httpx
+
+    signed_url = "https://storage.example.com/p/" + "temporary-download-access" + "/document.pdf"
+    for namespace in ("httpx", "httpcore", "pymongo"):
+        monkeypatch.setattr(logging.getLogger(namespace), "level", logging.INFO)
+
+    def action(_):
+        logging.getLogger("nexolicitcr.jobs").info("queue_event")
+        with httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(200))) as client:
+            client.get(signed_url)
+
+    monkeypatch.setattr("nexolicitcr.cli.db_action", action)
+    with caplog.at_level(logging.INFO):
+        assert CliRunner().invoke(app, ["worker", "--once"]).exit_code == 0
+    assert "queue_event" in caplog.text
+    assert signed_url not in caplog.text
+    assert not any(record.name.startswith(("httpx", "httpcore")) for record in caplog.records)

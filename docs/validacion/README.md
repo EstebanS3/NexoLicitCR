@@ -1,5 +1,7 @@
 # Memoria de validación y guion de exposición · NLC-10
 
+**Ampliación posterior del mismo día:** [Docker Desktop, Atlas, Redis real y recorrido SICOP](docker-atlas.md). Esa memoria agrega las comprobaciones ejecutadas después de la revisión local descrita abajo y actualiza sus límites de infraestructura.
+
 Fecha: 18 de octubre de 2026. Esta memoria satisface la entrega textual de NLC-10: explica el recorrido, sus resultados esperados, las comprobaciones ejecutadas y sus límites. No afirma que se haya realizado un único recorrido completo contra SICOP en vivo. La evidencia combina pruebas por componente, integración con MongoDB real y revisión visual controlada.
 
 ## Entorno y resultados ejecutados

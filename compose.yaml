@@ -1,9 +1,9 @@
 name: nexolicitcr
 x-app: &app
+  image: nexolicitcr:local
   build: .
-  env_file: .env
+  env_file: ${NEXO_ENV_FILE:-.env.atlas}
   environment:
-    APP_MODE: server
     MONGO_MODE: atlas
   init: true
   restart: unless-stopped
@@ -17,13 +17,27 @@ x-app: &app
   mem_limit: 1536m
   cpus: 2
 services:
+  init-db:
+    <<: *app
+    command: ["/app/.venv/bin/nexolicit", "init-db"]
+    restart: "no"
+    healthcheck:
+      disable: true
   web:
     <<: *app
-    ports: ["127.0.0.1:8000:8000"]
-    command: ["/app/.venv/bin/nexolicit", "api"]
+    ports: ["127.0.0.1:${NEXO_HTTP_PORT:-8000}:8000"]
+    command: ["/app/.venv/bin/nexolicit", "api", "--host", "0.0.0.0", "--no-worker"]
+    depends_on:
+      init-db:
+        condition: service_completed_successfully
   worker:
     <<: *app
     command: ["/app/.venv/bin/nexolicit", "worker"]
+    healthcheck:
+      disable: true
+    depends_on:
+      init-db:
+        condition: service_completed_successfully
   redis:
     image: redis:7.4-alpine
     profiles: [cache]
@@ -35,3 +49,8 @@ services:
     cap_drop: [ALL]
     user: redis
     mem_limit: 192m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3

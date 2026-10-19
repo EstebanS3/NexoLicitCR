@@ -68,6 +68,10 @@ def create_admin():
 @app.command()
 def api(
     port: int = typer.Option(8000, min=1024, max=65535),
+    host: str = typer.Option(
+        "",
+        help="Dirección de escucha opcional; Docker usa 0.0.0.0 con puerto publicado en loopback.",
+    ),
     with_worker: bool = typer.Option(
         True,
         "--worker/--no-worker",
@@ -80,9 +84,11 @@ def api(
     from .web import create_app
 
     cfg = settings()
+    if host not in {"", "127.0.0.1", "0.0.0.0", "::1"}:  # noqa: S104
+        raise typer.BadParameter("Usá 127.0.0.1, ::1 o 0.0.0.0", param_hint="--host")
     uvicorn.run(
         create_app(cfg, with_worker=with_worker),
-        host="127.0.0.1" if cfg.app_mode == "local" else "0.0.0.0",  # noqa: S104
+        host=host or ("127.0.0.1" if cfg.app_mode == "local" else "0.0.0.0"),  # noqa: S104
         port=port,
         proxy_headers=False,
         access_log=False,
@@ -147,6 +153,10 @@ def worker(once: bool = typer.Option(False, "--once")):
     from .jobs import JobQueue, execute
 
     logging.basicConfig(level=logging.INFO, format="%(message)s")
+    # HTTP client INFO/DEBUG logs include complete signed download URLs.
+    # Keep queue events while suppressing request/connection diagnostics.
+    for namespace in ("httpx", "httpcore", "pymongo"):
+        logging.getLogger(namespace).setLevel(logging.WARNING)
 
     def run(store, cfg):
         queue, owner = JobQueue(store, cfg), uuid4().hex

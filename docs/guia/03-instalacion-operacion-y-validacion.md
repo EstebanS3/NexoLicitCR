@@ -29,7 +29,7 @@ Las dependencias Python, rangos y herramientas de desarrollo están en [pyprojec
 | Local con MongoDB propio | `MONGO_MODE=local` | `APP_MODE=local` | Desarrollo y pruebas con base local autenticada. |
 | Servidor con Compose | `MONGO_MODE=atlas` | `APP_MODE=server` | Web detrás de proxy HTTPS y worker separado. |
 
-La combinación MongoDB local + aplicación en servidor es rechazada por la configuración. El [Compose incluido](../../compose.yaml) impone `APP_MODE=server` y `MONGO_MODE=atlas`: cambiar únicamente esos valores en `.env` no lo convierte en un despliegue local de MongoDB. Tampoco incluye un servicio MongoDB.
+La combinación MongoDB local + aplicación en servidor es rechazada por la configuración. El [Compose incluido](../../compose.yaml) usa `.env.atlas`, admite `APP_MODE=local` para Docker Desktop y conserva `APP_MODE=server` cuando se configura HTTPS. Impone `MONGO_MODE=atlas` y no incluye un servicio MongoDB.
 
 **Entrega universitaria:** [alcance-academico.md](../alcance-academico.md). Basta un entorno MongoDB real; Docker, Atlas como segundo entorno y Redis real son opcionales. Los procedimientos de servidor siguientes se conservan como ampliación.
 
@@ -334,21 +334,19 @@ Este comando informa archivos completos de GridFS con más de un día y sin refe
 
 ## 7. Despliegue con Docker y Atlas externo · opcional
 
-Antes de usar Compose, configurar `.env` con credenciales Atlas, `PUBLIC_ORIGIN=https://nombre-real`, `ENVIRONMENT=production` e `INSTALLATION_ID` exclusivo. Compose establece el modo servidor y Atlas independientemente de los valores locales del archivo.
+Para Docker Desktop, configurar `.env.atlas` a partir de `.env.atlas.example` con credenciales Atlas separadas, `APP_MODE=local` y `PUBLIC_ORIGIN=http://localhost:8000`. El archivo no reemplaza `.env`. También puede generarse con `scripts/configure_atlas.py`; ver [operación](../operations.md#docker-desktop-con-atlas-externo).
 
 ```bash
-docker compose build
-docker compose run --rm web /app/.venv/bin/nexolicit init-db
+docker compose up --build -d --wait
 
 # Opcional si se desea crear la primera cuenta por consola.
-docker compose run --rm web /app/.venv/bin/nexolicit create-admin
+docker compose run --rm --no-deps web /app/.venv/bin/nexolicit create-admin
 
-docker compose up -d web worker
-docker compose ps
+docker compose ps --all
 docker compose logs --tail=100 worker
 ```
 
-El servicio web publica `127.0.0.1:8000:8000`. Se requiere un proxy HTTPS que preserve el Host y que sea el punto público de entrada. Uvicorn tiene `proxy_headers=False`; no se debe asumir que confía en `X-Forwarded-For` o que reconstruye la IP del visitante. Los límites por dirección observan la dirección que recibe la aplicación, que puede ser la del proxy.
+`init-db` prepara índices y termina antes de iniciar web y worker separados. El servicio web publica `127.0.0.1:8000:8000`; en Docker Desktop puede abrirse directamente con HTTP local. Para un servidor público, configurar `APP_MODE=server`, `PUBLIC_ORIGIN=https://nombre-real`, `ENVIRONMENT=production` e `INSTALLATION_ID` exclusivo; se requiere un proxy HTTPS que preserve Host. Uvicorn tiene `proxy_headers=False`; no se debe asumir que confía en `X-Forwarded-For` o que reconstruye la IP del visitante. Los límites por dirección observan la dirección que recibe la aplicación, que puede ser la del proxy.
 
 El repositorio no incluye configuración de proxy, certificados, balanceador, dominio o aprovisionamiento Atlas. Esas piezas deben prepararse en el entorno del despliegue. Para verificar el backend por loopback con un dominio configurado, conservar el Host esperado:
 
@@ -362,7 +360,7 @@ Compose define usuario sin privilegios en la imagen, raíz del contenedor de sol
 
 ### Habilitar la caché opcional
 
-Para el Redis privado incluido, establecer en `.env`:
+Para el Redis privado incluido, establecer en `.env.atlas`:
 
 ```dotenv
 REDIS_URL=redis://redis:6379/0

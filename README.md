@@ -66,6 +66,17 @@ Como alternativa para quien administra el servidor, `uv run nexolicit create-adm
 
 Para servidor: configurar `APP_MODE=server`, origen HTTPS y un proxy TLS que preserve el Host; exponer exclusivamente el proxy y restringir el puerto del backend. El servidor no confía automáticamente en cabeceras reenviadas. Este repositorio no provisiona Atlas ni despliega servicios públicos.
 
+### Docker Desktop + Atlas
+
+Con Docker Desktop abierto, completar `.env.atlas` usando [.env.atlas.example](.env.atlas.example) o importar un archivo de conexión existente:
+
+```bash
+uv run python scripts/configure_atlas.py /ruta/al/ejemplo/atlas.env
+docker compose up --build -d --wait
+```
+
+Abrir **http://localhost:8000** y registrar la primera cuenta. Web y worker comparten Atlas; `init-db` prepara los índices automáticamente. El `.env` local se conserva. [Operación, Redis y pruebas reproducibles](docs/operations.md#docker-desktop-con-atlas-externo) · [Validación real Docker/Atlas](docs/validacion/docker-atlas.md).
+
 ## Desarrollo con MongoDB local
 
 La UI incluye login, catálogo, radar, seguimiento, sincronizaciones, documentos y detalle de concursos. Para probarla sin Atlas, usar MongoDB Community como **replica set de un nodo**; un servidor standalone no permite las transacciones utilizadas por la ingesta. Compass administra el servidor, pero no lo reemplaza.
