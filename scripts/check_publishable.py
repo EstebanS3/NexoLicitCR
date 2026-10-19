@@ -35,7 +35,12 @@ reviewed_assets = {
 
 def local_private_values(root):
     """Compare local secrets in memory; never return them in findings or logs."""
-    values = {Path.home().name, str(Path.home()), str(root), socket.gethostname()}
+    home = Path.home()
+    values = {str(home), str(root), socket.gethostname()}
+    # Generic CI/container accounts are also ordinary code identifiers. Their full
+    # home paths remain private; only a distinct workstation username is matched bare.
+    if home.name.casefold() not in {"runner", "root"}:
+        values.add(home.name)
     for path in root.glob(".env*"):
         if not path.is_file() or path.name.endswith(".example"):
             continue

@@ -2,6 +2,8 @@ import runpy
 import secrets
 from pathlib import Path
 
+import pytest
+
 audit = runpy.run_path(str(Path(__file__).resolve().parents[1] / "scripts/check_publishable.py"))
 
 
@@ -35,3 +37,24 @@ def test_env_files_are_rejected_even_if_force_added_or_nested(tmp_path):
 def test_detects_workstation_names_without_hardcoding_this_computer():
     host = "private-" + secrets.token_hex(6)
     assert audit["inspect_text"]("host=" + host, "report.md", {host})
+
+
+@pytest.mark.parametrize("service_account", ["runner", "root"])
+def test_service_accounts_allow_code_names_but_preserve_paths_and_secrets(
+    tmp_path, monkeypatch, service_account
+):
+    home = Path("/") / "home" / service_account
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    values = audit["local_private_values"](tmp_path)
+    assert audit["inspect_text"](f"{service_account} = CliRunner()", "test.py", values) is None
+    assert audit["inspect_text"](str(home / "work"), "report.md", values)
+
+    # A real configured password remains sensitive even if it equals a CI account name.
+    (tmp_path / ".env").write_text("ATLAS_CLAVE=runner\n")
+    values = audit["local_private_values"](tmp_path)
+    assert audit["inspect_text"]("runner", "config.txt", values)
+
+    workstation = "private-" + secrets.token_hex(6)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: Path("/") / "home" / workstation))
+    values = audit["local_private_values"](tmp_path)
+    assert audit["inspect_text"](workstation, "report.md", values)
