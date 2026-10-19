@@ -66,8 +66,11 @@ def test_real_ocr_gridfs_transaction_and_match(tmp_path, monkeypatch, term):
     from nexolicitcr.extractor import VERSION, ocr_executable
     from nexolicitcr.matching import score
 
-    if os.getenv("NEXO_TEST_LOCAL") != "1":
-        pytest.skip("Opt in with NEXO_TEST_LOCAL=1")
+    local, atlas = os.getenv("NEXO_TEST_LOCAL") == "1", os.getenv("NEXO_TEST_ATLAS") == "1"
+    if not local and not atlas:
+        pytest.skip("Opt in with NEXO_TEST_LOCAL=1 or NEXO_TEST_ATLAS=1")
+    if local == atlas:
+        pytest.fail("Select only one MongoDB integration environment")
     database_name = os.environ.get("NEXO_TEST_DATABASE", "")
     if not database_name.startswith("nexolicit_test_"):
         pytest.fail("NEXO_TEST_DATABASE must start with nexolicit_test_")
@@ -75,7 +78,7 @@ def test_real_ocr_gridfs_transaction_and_match(tmp_path, monkeypatch, term):
         pytest.skip("Native Spanish Tesseract required")
     ocr_executable()
     cfg = Settings()
-    assert cfg.mongo_mode == "local"
+    assert cfg.mongo_mode == ("local" if local else "atlas")
     marker = uuid4().hex
     source = tmp_path / "scan.png"
     image = Image.new("RGB", (1600, 1200), "white")
