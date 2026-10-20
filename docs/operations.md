@@ -40,24 +40,57 @@ uv run nexolicit import-offers CARTEL:SECUENCIA --lot 1
 
 El histórico es por partida y conserva importes presentados; una consulta inválida falla, no se convierte en “sin ofertas”. RF-16 (comparables adjudicados) permanece indisponible hasta validar una fuente final por línea/unidad/moneda.
 
-## Servidor con Atlas externo y Docker · opcional
+## Docker Desktop con Atlas externo
 
-Configurar `.env` con `MONGO_MODE=atlas`, credenciales separadas, `APP_MODE=server`, `PUBLIC_ORIGIN=https://nombre-real`, `ENVIRONMENT=production` e `INSTALLATION_ID` exclusivo. Atlas debe permitir la IP saliente y el usuario debe limitarse a la base asignada. TLS Atlas obligatorio.
+Docker Desktop debe estar abierto y su motor listo. Compose usa `.env.atlas`, independiente del `.env` de MongoDB local. Para reutilizar un archivo de un ejemplo que ya conecta:
 
 ```bash
-docker compose build
-docker compose run --rm web /app/.venv/bin/nexolicit init-db
-docker compose run --rm web /app/.venv/bin/nexolicit create-admin
-docker compose up -d web worker
-# Opcional: configurar REDIS_URL=redis://redis:6379/0 en .env para este Redis privado.
+uv run python scripts/configure_atlas.py /ruta/al/ejemplo/atlas.env
+# Alternativa manual: copiar .env.atlas.example a .env.atlas y completar los valores.
+```
+
+El importador conserva usuario y contraseña separados, traslada `authSource` a `ATLAS_AUTHDB`, elige la base `nexolicit_docker` y crea el archivo privado con permisos 0600. No sobrescribe archivos existentes ni modifica el ejemplo. Atlas debe permitir la IP saliente y el usuario debe tener permisos sobre la base elegida. TLS Atlas sigue siendo obligatorio.
+
+```bash
+docker compose up --build -d --wait
+docker compose ps --all
+curl http://localhost:8000/health/ready
+# Abrir http://localhost:8000 y registrar la primera cuenta.
+# Opcional: configurar REDIS_URL=redis://redis:6379/0 en .env.atlas.
 docker compose --profile cache up -d
 # Detener sin eliminar la persistencia Atlas:
 docker compose down
 ```
 
-Web escucha solo en el loopback del host. Usar proxy HTTPS que preserve Host; no publicar directamente el backend. Redis del perfil no expone puertos, es caché descartable y tiene límite de memoria; para compartir un Redis existente usar usuario ACL restringido y otro namespace/instalación. No arrancar el perfil si se utiliza un Redis externo. `.dockerignore` excluye todo excepto código y archivos de dependencias; `.env` entra solo en runtime.
+`init-db` prepara índices antes de iniciar web y worker. Que termine con código 0 es lo esperado. La API escucha dentro del contenedor con `--host 0.0.0.0 --no-worker`; Compose publica exclusivamente `127.0.0.1:8000`. El worker corre en su propio contenedor. El healthcheck HTTP consulta MongoDB y conserva el Host de `PUBLIC_ORIGIN`. No demuestra por sí solo que el worker procese jobs.
 
-El Dockerfile y Compose están preparados; su construcción **no ha sido validada en este equipo**, donde Docker no está disponible.
+Para cambiar el puerto, configurar `PUBLIC_ORIGIN=http://localhost:18001` en el archivo privado y ejecutar `NEXO_HTTP_PORT=18001 docker compose up -d --wait`. `NEXO_ENV_FILE` permite seleccionar otro archivo privado. Evitar imprimir `docker compose config` sin `--quiet` o un `docker inspect` completo: incluyen variables de runtime.
+
+Redis del perfil no expone puertos, es caché descartable y tiene límite de memoria; para compartir un Redis existente usar usuario ACL restringido y otro namespace/instalación. No arrancar el perfil si se utiliza un Redis externo. `.dockerignore` admite únicamente código y dependencias; los archivos privados se cargan en runtime. La imagen final contiene el paquete instalado, OCR y Poppler, sin uv ni dependencias de desarrollo.
+
+Para un servidor público, cambiar en el archivo elegido `APP_MODE=server`, `PUBLIC_ORIGIN=https://nombre-real`, `ENVIRONMENT=production` e `INSTALLATION_ID` exclusivo, y preparar un proxy HTTPS que preserve Host. Compose conserva esos valores; impone solamente `MONGO_MODE=atlas`. El repositorio no aprovisiona hosting ni certificados.
+
+La construcción y el recorrido Docker → Atlas se comprobaron el 18/10/2026. Consultar [resultados y límites](validacion/docker-atlas.md).
+
+### Prueba reproducible del flujo cloud
+
+```bash
+# Nativo: usa una base exclusiva y administra sus propios procesos.
+uv run python scripts/smoke_cloud.py --native --url http://localhost:18000 \
+  --database nexolicit_test_smoke --sync
+
+# Docker: crear configuración exclusiva; poner su PUBLIC_ORIGIN en localhost:18001.
+uv run python scripts/configure_atlas.py /ruta/al/ejemplo/atlas.env \
+  --output .env.atlas.smoke --database nexolicit_test_docker
+NEXO_ENV_FILE=.env.atlas.smoke NEXO_HTTP_PORT=18001 \
+  docker compose -p nexolicitcr-smoke up -d --wait
+uv run python scripts/smoke_cloud.py --env-file .env.atlas.smoke \
+  --url http://localhost:18001 --compose-project nexolicitcr-smoke --sync
+NEXO_ENV_FILE=.env.atlas.smoke NEXO_HTTP_PORT=18001 \
+  docker compose -p nexolicitcr-smoke --profile cache down
+```
+
+El script exige una base `nexolicit_test_` sin administrador. Verifica registro, login, catálogo, perfil, CSRF, páginas y logout; `--sync` consulta un concurso real de SICOP con el worker. `--compose-project` reinicia el contenedor web y comprueba la misma sesión y catálogo. `--cache-outage` detiene y vuelve a iniciar el Redis de ese proyecto; habilitar primero su perfil y URL. `--documents` intenta además los anexos, cuya compatibilidad y disponibilidad dependen de la fuente. Al finalizar elimina únicamente su cuenta y sesiones, restaura el catálogo original y conserva la evidencia importada en la base de prueba. El informe JSON de `artifacts/` no incluye credenciales ni URLs firmadas.
 
 ## Calidad y límites de evidencia
 
