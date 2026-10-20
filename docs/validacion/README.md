@@ -74,3 +74,10 @@ Detener cada proceso independiente con Ctrl+C en su terminal. Un SIGKILL a la AP
 No se ejecutó una nueva consulta SICOP ni un E2E único de fuente viva. Las decisiones y el cambio de cierre se sustentan en pruebas controladas, no en una sesión visual con concursos reales. La memoria ofrece trazabilidad de esas comprobaciones sin convertirlas en evidencia de producción.
 
 Docker, Atlas como segundo entorno, Redis real, evaluación humana por pares, estudios con empresas y comparables siguen siendo ampliaciones opcionales. El [benchmark académico](../benchmarks/matching-academic.json) usa un doble en memoria y 100/1.000 concursos; no mide latencia real de Redis ni el pipeline completo. Las historias verificadas siguen sujetas a revisión y aceptación del PR.
+
+## Revisión de los issues de Adriana · 19/10/2026
+
+[Resolución de NLC-04, NLC-09 y NLC-10](adriana-issues.md): trazabilidad de consulta
+acotada, corrección y revalidación real del histórico de precios presentados, guion
+de exposición y verificaciones de la rama `adriana/issue-4-9-10`. La revisión
+Windows se documenta por separado de las integraciones reales anteriores.
