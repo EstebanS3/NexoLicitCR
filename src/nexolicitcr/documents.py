@@ -24,6 +24,8 @@ from .models import Document, ExtractionPage
 from .sicop import BASE, HEADERS, SourceError, SourceRateLimited, retry_after_seconds
 from .storage import utcnow
 
+MEDIA_EXTENSIONS = {"application/pdf": "pdf", "image/png": "png", "image/jpeg": "jpg"}
+
 
 class DocumentError(SourceError):
     pass
@@ -149,6 +151,17 @@ class DocumentService:
                 return size == metadata["size"] and digest.hexdigest() == metadata["sha256"]
         except (NoFile, CorruptGridFile):
             return False
+
+    def verified_original(self, document):
+        """GridFS id of the complete original, or None; never stream a truncated file."""
+        if (
+            document.get("media_type") not in MEDIA_EXTENSIONS
+            or not document.get("sha256")
+            or not isinstance(document.get("size"), int)
+        ):
+            return None
+        blob = document.get("gridfs_id")
+        return blob if self._complete_blob(blob, document) else None
 
     def _store_blob(self, path, metadata, guard):
         preferred = metadata["sha256"]

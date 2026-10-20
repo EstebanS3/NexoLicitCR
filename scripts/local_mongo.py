@@ -72,28 +72,41 @@ def start(binary):
     data = RUNTIME / "data"
     data.mkdir(exist_ok=True, mode=0o700)
     # Explicit executable path, no shell; never bind a network interface.
-    subprocess.run(  # noqa: S603
-        [
-            str(Path(binary).resolve()),
-            "--dbpath",
-            str(data),
-            "--bind_ip",
-            "127.0.0.1",
-            "--port",
-            "27017",
-            "--replSet",
-            "nexo-local",
-            "--keyFile",
-            str(key),
-            "--auth",
-            "--fork",
-            "--logpath",
-            str(RUNTIME / "mongod.log"),
-            "--pidfilepath",
-            str(RUNTIME / "mongod.pid"),
-        ],
-        check=True,
-    )
+    command = [
+        str(Path(binary).resolve()),
+        "--dbpath",
+        str(data),
+        "--bind_ip",
+        "127.0.0.1",
+        "--port",
+        "27017",
+        "--replSet",
+        "nexo-local",
+        "--keyFile",
+        str(key),
+        "--auth",
+        "--logpath",
+        str(RUNTIME / "mongod.log"),
+        "--logappend",
+        "--pidfilepath",
+        str(RUNTIME / "mongod.pid"),
+    ]
+    if os.name == "nt":
+        # Windows mongod has no --fork: detach it so it outlives this terminal.
+        subprocess.Popen(  # noqa: S603
+            command,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+        )
+    else:
+        subprocess.run([*command, "--fork"], check=True)  # noqa: S603
+    with MongoClient(URI, serverSelectionTimeoutMS=30000) as probe:
+        try:
+            probe.admin.command("ping")
+        except ConnectionFailure:
+            raise SystemExit("mongod no respondió; revisá var/mongodb/mongod.log.") from None
     # MongoDB's localhost exception permits initial replica-set and first-user setup.
     with MongoClient(URI, serverSelectionTimeoutMS=5000) as bootstrap:
         try:

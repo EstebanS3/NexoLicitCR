@@ -18,6 +18,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from .cache import OptionalCache
 from .config import Settings
 from .discovery import matching_catalog, suggest
+from .documents import MEDIA_EXTENSIONS, DocumentService
 from .jobs import JobQueue
 from .matching import Radar, deadline_status, normalized, tender_match
 from .models import CatalogItem, CompanyProfile
@@ -969,30 +970,44 @@ def create_app(
             "document.html",
             csrf=current["csrf"],
             document=document,
+            original_available=bool(
+                document.get("gridfs_id")
+                and DocumentService(store, settings).verified_original(document)
+            ),
             pages=list(store.db.extracted_pages.find({"document_id": document_id}).sort("page", 1)),
         )
 
     @app.get("/documents/{document_id}/download")
     def document_download(request: Request, document_id: str):
         session(request)
-        import gridfs
-
         document = store.db.documents.find_one({"_id": document_id})
         if not document or not document.get("gridfs_id"):
             raise HTTPException(404)
-        fs = gridfs.GridFS(store.db)
-        if not fs.exists(document["gridfs_id"]):
-            raise HTTPException(404)
+        service = DocumentService(store, settings)
+        # Verify size and SHA-256 before the first byte: a 200 must never end truncated.
+        blob = service.verified_original(document)
+        if not blob:
+            raise HTTPException(
+                409, "El original no está completo; se reparará al reconsultar el concurso."
+            )
 
         def chunks():
-            with fs.get(document["gridfs_id"]) as stream:
+            with service.fs.get(blob) as stream:
                 while chunk := stream.read(65536):
                     yield chunk
 
+        # Attachment + nosniff: the browser saves the original, never renders or runs it.
+        extension = MEDIA_EXTENSIONS[document["media_type"]]
         return StreamingResponse(
             chunks(),
-            media_type="application/octet-stream",
-            headers={"Content-Disposition": 'attachment; filename="documento.bin"'},
+            media_type=document["media_type"],
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="anexo-{document["sha256"][:12]}.{extension}"'
+                ),
+                "Content-Length": str(document["size"]),
+                "X-Content-Type-Options": "nosniff",
+            },
         )
 
     return app

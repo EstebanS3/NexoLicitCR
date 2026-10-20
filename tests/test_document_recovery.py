@@ -112,3 +112,48 @@ def test_orphan_report_identifies_uncommitted_chunks_without_removing_them(docum
     assert unfinished["kind"] == "chunks_without_file" and unfinished["chunks"] == 1
     assert unfinished["older_than_one_day"] is False
     assert service.store.db.fs.chunks.count_documents({"files_id": digest}) == 1
+
+
+@pytest.mark.parametrize("damage", [None, "missing_chunk", "altered_content"])
+def test_download_serves_only_verified_complete_original(client, store, damage):
+    import gridfs
+    from test_web import login
+
+    enable_gridfs_integration()
+    payload = b"%PDF-1.4\n" + bytes(range(256)) * 4
+    digest = hashlib.sha256(payload).hexdigest()
+    blob = f"{digest}-upload"
+    stored = b"%PDF-1.4\n" + bytes(1024) if damage == "altered_content" else payload
+    gridfs.GridFS(store.db).put(stored, _id=blob, chunkSize=256)
+    if damage == "missing_chunk":
+        # The manifest still exists, so a bare existence check would start a truncated 200.
+        store.db.fs.chunks.delete_one({"files_id": blob, "n": 2})
+    store.db.documents.insert_one(
+        {
+            "_id": "doc-1",
+            "tender_key": "test:00",
+            "source_identity": "source",
+            "sha256": digest,
+            "size": len(payload),
+            "media_type": "application/pdf",
+            "state": "ready",
+            "current": True,
+            "gridfs_id": blob,
+            "pages": 0,
+            "extractor_version": VERSION,
+        }
+    )
+    login(client)
+    view = client.get("/documents/doc-1")
+    response = client.get("/documents/doc-1/download")
+    if damage is None:
+        assert "Descargar original" in view.text
+        assert response.status_code == 200 and response.content == payload
+        assert response.headers["content-type"] == "application/pdf"
+        assert f'filename="anexo-{digest[:12]}.pdf"' in response.headers["content-disposition"]
+        assert response.headers["x-content-type-options"] == "nosniff"
+    else:
+        assert "Descargar original" not in view.text and "no está completo" in view.text
+        assert response.status_code == 409 and payload not in response.content
+        # Diagnosis is read-only: nothing is deleted by viewing or downloading.
+        assert store.db.fs.files.count_documents({"_id": blob}) == 1
