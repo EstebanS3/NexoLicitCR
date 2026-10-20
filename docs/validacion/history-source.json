@@ -1,0 +1,25 @@
+{
+  "kind": "sicop_presented_offers_source_validation",
+  "local_date": "2026-10-19",
+  "timezone": "America/Costa_Rica",
+  "started_at": "2026-10-20T02:37:58.870162+00:00",
+  "fetched_at": "2026-10-20T02:37:59.436029+00:00",
+  "server_date": "Tue, 20 Oct 2026 02:37:56 GMT",
+  "cartel_no": "20261000696",
+  "sequence": "00",
+  "lot": "1",
+  "source_url": "https://www.sicop.go.cr/moduloOferta/servlet/search/EP_SEV_COQ622?cartelNo=20261000696&cartelSeq=00&cartelCate=1&cartelProgressCd=30&application=new",
+  "source_hash": "a2876d15aaac9a178e861a863c74faa2c98d730888def94cfaa4775a533017b4",
+  "status": "validated",
+  "count": 1,
+  "normalized_prices": 1,
+  "currencies": [
+    "CRC"
+  ],
+  "awards_inferred": false,
+  "limitations": [
+    "One public lot; availability may change",
+    "No raw HTML, suppliers or attachment contents retained",
+    "No MongoDB integration or final award validation"
+  ]
+}

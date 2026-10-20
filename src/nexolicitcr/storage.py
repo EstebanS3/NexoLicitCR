@@ -81,8 +81,12 @@ class Store:
         self.db.fs.files.create_index("metadata.sha256")
         self.db.extracted_pages.create_index([("document_id", 1), ("page", 1)], unique=True)
         self.db.offers.create_index(
-            [("tender_key", 1), ("source_hash", 1), ("position", 1)], unique=True
+            [("tender_key", 1), ("lot", 1), ("source_hash", 1), ("position", 1)], unique=True
         )
+        legacy_offer_index = "tender_key_1_source_hash_1_position_1"
+        if legacy_offer_index in self.db.offers.index_information():
+            self.db.offers.drop_index(legacy_offer_index)
+        self.db.offer_queries.create_index([("tender_key", 1), ("lot", 1)], unique=True)
         self.db.metadata.update_one(
             {"_id": "corpus"}, {"$setOnInsert": {"generation": 0}}, upsert=True
         )

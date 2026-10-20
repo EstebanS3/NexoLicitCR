@@ -1,0 +1,33 @@
+<section class="panel">
+  <p class="eyebrow">CONTEXTO HISTÓRICO</p>
+  <h2>Precios presentados</h2>
+  <p class="fine-print">Ofertas públicas observadas. No acreditan adjudicación ni precio unitario.</p>
+  {% for query in offer_queries %}
+    <div class="notice">
+      <strong>Partida {{ query.lot }}</strong> · Último intento: {{ query.attempted_at|cr_datetime }}.
+      {% if query.status == 'failed' %}
+        No se pudo consultar el histórico{% if query.error_code == 'HISTORY_OPENING_PENDING' %}: la apertura no ha finalizado{% endif %}.
+        Un fallo no confirma ausencia de ofertas. Las observaciones anteriores se conservan.
+        {% if query.last_success_at %}Última consulta exitosa: {{ query.last_success_at|cr_datetime }}.{% endif %}
+      {% elif query.count == 0 %}
+        Sin ofertas en la última consulta validada.
+      {% else %}
+        Última consulta validada: {{ query.count }} oferta(s).
+      {% endif %}
+      {% if query.source_url %}<a href="{{ query.source_url }}" rel="noopener noreferrer">Consultar fuente ↗</a>{% endif %}
+    </div>
+  {% else %}
+    <p class="muted">Histórico no consultado o fuente aún no validada para este concurso.</p>
+  {% endfor %}
+  {% if offers %}<h3>Observaciones guardadas</h3><p class="fine-print">Hasta 50 observaciones históricas; pueden corresponder a consultas anteriores.</p>{% endif %}
+  {% for offer in offers %}
+    <div class="document-link">
+      <span>Partida {{ offer.lot }} · {{ offer.price_raw or 'Precio desconocido' }}
+        <small> · Calificación del proveedor: {{ offer.supplier_rating or 'Desconocida' }} · {{ offer.status or 'Estado desconocido' }}</small>
+        <small> · Consultado: {{ offer.fetched_at|cr_datetime }}</small>
+      </span>
+      <a href="{{ offer.source_url }}" rel="noopener noreferrer">Fuente ↗</a>
+    </div>
+  {% endfor %}
+  <p class="notice">Comparables adjudicados no disponibles: falta validar adjudicación final por línea, unidad y moneda.</p>
+</section>
