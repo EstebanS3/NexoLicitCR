@@ -1,4 +1,5 @@
 import json
+import os
 import runpy
 from io import BytesIO
 from pathlib import Path
@@ -27,7 +28,9 @@ def test_atlas_import_preserves_secrets_and_never_overwrites(tmp_path):
     assert loaded["ATLAS_BASE"] == "nexolicit_test_import"
     assert "authSource" not in loaded["ATLAS_URI"]
     assert loaded["ATLAS_AUTHDB"] == "admin"
-    assert target.stat().st_mode & 0o777 == 0o600
+    assert target.read_bytes().decode("utf-8").startswith("# Configuración privada de Atlas.")
+    if os.name == "posix":
+        assert target.stat().st_mode & 0o777 == 0o600
     assert source.read_text() == original
     with pytest.raises(FileExistsError):
         configure(source, target, "nexolicit_test_import")

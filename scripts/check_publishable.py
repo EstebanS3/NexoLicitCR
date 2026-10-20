@@ -94,7 +94,7 @@ def audit_paths(root, paths, private=()):
             errors.append((name, "environment file"))
             continue
         try:
-            text = path.read_text()
+            text = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             if reviewed_assets.get(name) != hashlib.sha256(path.read_bytes()).hexdigest():
                 errors.append((name, "binary requires manual review"))

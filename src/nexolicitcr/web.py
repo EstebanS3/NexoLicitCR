@@ -779,6 +779,7 @@ def create_app(
             current_status=deadline_status(tender["payload"]),
             match=tender_match(store, key, tender["payload"], matching_catalog(store.catalog())),
             documents=list(store.db.documents.find({"tender_key": key})),
+            offer_queries=list(store.db.offer_queries.find({"tender_key": key}).sort("lot", 1)),
             offers=list(store.db.offers.find({"tender_key": key}).sort("fetched_at", -1).limit(50)),
             decision=store.db.decisions.find_one({"company": "company", "tender_key": key}) or {},
         )

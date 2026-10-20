@@ -81,7 +81,9 @@ def test_image_missing_ocr_is_explicit(tmp_path, monkeypatch):
 
 def test_offers_not_awards_and_source_errors():
     assert presented_price("CRC 251.020,80") == ("CRC", "251020.80")
-    html = '<h1>Precio presentado · Calificación</h1><table><tr><td>1</td><td>1</td><td>Normal</td><td>Base</td><td>95</td><td>CRC 251.020,80</td><td>En estudio</td></tr><tr><td>Proveedor sintético</td><td><a href="javascript:js_viewFile(1)">Archivo</a></td></tr></table>'
+    from pathlib import Path
+
+    html = (Path(__file__).parent / "fixtures/presented-offers.html").read_text(encoding="utf-8")
     offer = parse_offers(html, "1")[0]
     assert (
         offer["price_presented"] == "251020.80"
