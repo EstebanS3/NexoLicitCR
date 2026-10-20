@@ -1,5 +1,7 @@
 # Operación y validación
 
+**Alcance vigente:** [entrega universitaria](alcance-academico.md). Docker/Compose y la validación de un segundo backend o servidor Redis son opcionales.
+
 ## Arranque bajo demanda
 
 ```bash
@@ -25,33 +27,70 @@ Una interrupción deja un lease recuperable; otro worker lo reclama al vencer. L
 
 ## Documentos
 
-Límites por defecto: 20 MiB/archivo, 5 anexos/concurso, 30 páginas, 120 segundos de extracción total. PDF con menos de 40 caracteres por página usa OCR español. Fallos y páginas no procesadas quedan explícitos, no equivalen a “sin requisitos”. `DOCUMENT_HOSTS` solo admite hosts HTTPS exactos previamente verificados. Los hosts Oracle de URLs firmadas **no están habilitados automáticamente**; comprobar la procedencia antes de agregarlos. No guardar ni publicar esas URLs firmadas.
+Límites por defecto: 20 MiB/archivo, 5 anexos/concurso, 30 páginas, 120 segundos de extracción total. PDF con menos de 40 caracteres por página usa OCR español; también páginas con menos de 250 caracteres y una imagen de al menos 800 × 800 píxeles. El OCR usa detección automática de orientación. Los PDF que superan el límite conservan las primeras páginas y quedan parciales (`PAGE_COUNT_LIMIT`). Fallos y páginas no procesadas quedan explícitos, no equivalen a “sin requisitos”. `DOCUMENT_HOSTS` solo admite hosts HTTPS exactos previamente verificados. El host Oracle verificado en `source-validation.md` está habilitado por defecto; un `DOCUMENT_HOSTS` explícito reemplaza esa lista. Otros hosts requieren verificar la procedencia antes de agregarlos. No guardar ni publicar esas URLs firmadas.
+
+La extracción corre en un subproceso aislado (`python -m nexolicitcr.extractor`). En Linux/macOS aplica además `rlimit` de CPU (110 s) y tamaño de archivo (64 MiB), y en Linux memoria virtual (1 GiB). Windows no tiene el módulo `resource`: allí no hay `rlimit` y el único límite es el tiempo de extracción del proceso padre (`EXTRACTION_TIMEOUT_SECONDS`, 120 s por defecto), que termina el subproceso al vencer. Para servidores usar Linux.
 
 ```bash
 uv run nexolicit document-orphans
 uv run nexolicit import-offers CARTEL:SECUENCIA --lot 1
 ```
 
+`document-orphans` reporta archivos completos sin referencia de más de un día y también fragmentos sin manifiesto, cuya carga podría estar activa. No elimina nada. GridFS verifica contenido/tamaño antes de publicar; un reintento de anexos repara un documento listo cuyo original falte usando otra identidad de carga. Ejecutar `init-db` para incorporar el índice de `fs.files.metadata.sha256` en instalaciones existentes.
+
 El histórico es por partida y conserva importes presentados; una consulta inválida falla, no se convierte en “sin ofertas”. RF-16 (comparables adjudicados) permanece indisponible hasta validar una fuente final por línea/unidad/moneda.
 
-## Servidor con Atlas externo
+## Docker Desktop con Atlas externo
 
-Configurar `.env` con `MONGO_MODE=atlas`, credenciales separadas, `APP_MODE=server`, `PUBLIC_ORIGIN=https://nombre-real`, `ENVIRONMENT=production` e `INSTALLATION_ID` exclusivo. Atlas debe permitir la IP saliente y el usuario debe limitarse a la base asignada. TLS Atlas obligatorio.
+Docker Desktop debe estar abierto y su motor listo. Compose usa `.env.atlas`, independiente del `.env` de MongoDB local. Para reutilizar un archivo de un ejemplo que ya conecta:
 
 ```bash
-docker compose build
-docker compose run --rm web /app/.venv/bin/nexolicit init-db
-docker compose run --rm web /app/.venv/bin/nexolicit create-admin
-docker compose up -d web worker
-# Opcional: configurar REDIS_URL=redis://redis:6379/0 en .env para este Redis privado.
+uv run python scripts/configure_atlas.py /ruta/al/ejemplo/atlas.env
+# Alternativa manual: copiar .env.atlas.example a .env.atlas y completar los valores.
+```
+
+El importador conserva usuario y contraseña separados, traslada `authSource` a `ATLAS_AUTHDB`, elige la base `nexolicit_docker` y crea el archivo privado con permisos 0600. No sobrescribe archivos existentes ni modifica el ejemplo. Atlas debe permitir la IP saliente y el usuario debe tener permisos sobre la base elegida. TLS Atlas sigue siendo obligatorio.
+
+```bash
+docker compose up --build -d --wait
+docker compose ps --all
+curl http://localhost:8000/health/ready
+# Abrir http://localhost:8000 y registrar la primera cuenta.
+# Opcional: configurar REDIS_URL=redis://redis:6379/0 en .env.atlas.
 docker compose --profile cache up -d
 # Detener sin eliminar la persistencia Atlas:
 docker compose down
 ```
 
-Web escucha solo en el loopback del host. Usar proxy HTTPS que preserve Host; no publicar directamente el backend. Redis del perfil no expone puertos, es caché descartable y tiene límite de memoria; para compartir un Redis existente usar usuario ACL restringido y otro namespace/instalación. No arrancar el perfil si se utiliza un Redis externo. `.dockerignore` excluye todo excepto código y archivos de dependencias; `.env` entra solo en runtime.
+`init-db` prepara índices antes de iniciar web y worker. Que termine con código 0 es lo esperado. La API escucha dentro del contenedor con `--host 0.0.0.0 --no-worker`; Compose publica exclusivamente `127.0.0.1:8000`. El worker corre en su propio contenedor. El healthcheck HTTP consulta MongoDB y conserva el Host de `PUBLIC_ORIGIN`. No demuestra por sí solo que el worker procese jobs.
 
-El Dockerfile y Compose están preparados; su construcción **no ha sido validada en este equipo**, donde Docker no está disponible.
+Para cambiar el puerto, configurar `PUBLIC_ORIGIN=http://localhost:18001` en el archivo privado y ejecutar `NEXO_HTTP_PORT=18001 docker compose up -d --wait`. `NEXO_ENV_FILE` permite seleccionar otro archivo privado. Evitar imprimir `docker compose config` sin `--quiet` o un `docker inspect` completo: incluyen variables de runtime.
+
+Redis del perfil no expone puertos, es caché descartable y tiene límite de memoria; para compartir un Redis existente usar usuario ACL restringido y otro namespace/instalación. No arrancar el perfil si se utiliza un Redis externo. `.dockerignore` admite únicamente código y dependencias; los archivos privados se cargan en runtime. La imagen final contiene el paquete instalado, OCR y Poppler, sin uv ni dependencias de desarrollo.
+
+Para un servidor público, cambiar en el archivo elegido `APP_MODE=server`, `PUBLIC_ORIGIN=https://nombre-real`, `ENVIRONMENT=production` e `INSTALLATION_ID` exclusivo, y preparar un proxy HTTPS que preserve Host. Compose conserva esos valores; impone solamente `MONGO_MODE=atlas`. El repositorio no aprovisiona hosting ni certificados.
+
+La construcción y el recorrido Docker → Atlas se comprobaron el 18/10/2026. Consultar [resultados y límites](validacion/docker-atlas.md).
+
+### Prueba reproducible del flujo cloud
+
+```bash
+# Nativo: usa una base exclusiva y administra sus propios procesos.
+uv run python scripts/smoke_cloud.py --native --url http://localhost:18000 \
+  --database nexolicit_test_smoke --sync
+
+# Docker: crear configuración exclusiva; poner su PUBLIC_ORIGIN en localhost:18001.
+uv run python scripts/configure_atlas.py /ruta/al/ejemplo/atlas.env \
+  --output .env.atlas.smoke --database nexolicit_test_docker
+NEXO_ENV_FILE=.env.atlas.smoke NEXO_HTTP_PORT=18001 \
+  docker compose -p nexolicitcr-smoke up -d --wait
+uv run python scripts/smoke_cloud.py --env-file .env.atlas.smoke \
+  --url http://localhost:18001 --compose-project nexolicitcr-smoke --sync
+NEXO_ENV_FILE=.env.atlas.smoke NEXO_HTTP_PORT=18001 \
+  docker compose -p nexolicitcr-smoke --profile cache down
+```
+
+El script exige una base `nexolicit_test_` sin administrador. Verifica registro, login, catálogo, perfil, CSRF, páginas y logout; `--sync` consulta un concurso real de SICOP con el worker. `--compose-project` reinicia el contenedor web y comprueba la misma sesión y catálogo. `--cache-outage` detiene y vuelve a iniciar el Redis de ese proyecto; habilitar primero su perfil y URL. `--documents` intenta además los anexos, cuya compatibilidad y disponibilidad dependen de la fuente. Al finalizar elimina únicamente su cuenta y sesiones, restaura el catálogo original y conserva la evidencia importada en la base de prueba. El informe JSON de `artifacts/` no incluye credenciales ni URLs firmadas.
 
 ## Calidad y límites de evidencia
 
@@ -66,7 +105,9 @@ NEXO_TEST_LOCAL=1 NEXO_TEST_DATABASE=nexolicit_test_local uv run pytest -m integ
 NEXO_TEST_ATLAS=1 NEXO_TEST_DATABASE=nexolicit_test_integration uv run pytest -m integration
 ```
 
-Los tests con mongomock son evidencia de lógica, no de transacciones/recuperación física real. No se inicia MongoDB ni API automáticamente desde pytest. Para evaluar calidad se necesitan 30–50 pares catálogo/concurso etiquetados por humanos; no sustituirlos por etiquetas generadas. La prueba de equivalencia de caché usa un doble Redis con caída/recuperación; la latencia real requiere un Redis de prueba.
+Los tests con mongomock son evidencia de lógica, no de transacciones/recuperación física real. `tests/test_restart_integration.py` (marcado `integration`) levanta `nexolicit api` como proceso real, registra la cuenta, inicia sesión y guarda un ítem del catálogo; mata el proceso sin apagado ordenado, lo vuelve a levantar y comprueba con la misma cookie que la sesión y el catálogo persisten. Tras cerrar sesión y reiniciar otra vez, el token revocado se rechaza en el servidor. Requiere una base de prueba sin administrador y restaura el catálogo al terminar. La recuperación física está en `tests/test_worker_recovery_integration.py` (marcado `integration`): un worker real se ejecuta como proceso aparte, se termina a mitad de una consulta sin limpieza, otro worker recupera el job cuando vence su lease (15 s) conservando los checkpoints, y un worker vencido no logra confirmar ninguna escritura dentro de una transacción real. Usa sus propios `installation_id` y concursos, los borra al terminar, y falla si la base de prueba ya contiene concursos activos de obras. Pytest no inicia MongoDB; las pruebas de reinicio sí administran su propio proceso API. La evaluación humana mediante pares perfil/concurso y los estudios con empresas son ampliaciones opcionales; no se exige una muestra ni métricas de relevancia para aceptar la entrega técnica. La prueba de equivalencia de caché usa un doble Redis con caída/recuperación; la latencia real requiere un Redis de prueba.
+
+La prueba `tests/test_runtime_integration.py` demuestra en POSIX el inicio del worker local, su reemplazo tras SIGKILL y su cierre al terminar la API por SIGTERM, sin detener un worker independiente. La limpieza ocurre en el lifespan de FastAPI antes de que Uvicorn retransmita la señal. No cubre SIGKILL de la API. [Memoria, comandos y revisión visual](validacion/README.md).
 
 ### Mantenimiento automático de la cola
 
@@ -155,3 +196,44 @@ claves separado del login, límites de intentos y errores sin contraseñas.
 Una empresa distinta requiere otra instalación y base exclusiva. Este registro
 inicial no incorpora recuperación de contraseña ni cuentas adicionales. El alta
 CLI sigue disponible y no reemplaza una cuenta existente.
+
+
+### Perfil con varias especialidades y evidencia OCR
+
+El perfil admite de 1 a 8 especialidades, incluso de distintos sectores, y hasta
+8 términos por especialidad (64 en total). Las sugerencias se combinan sin
+duplicados y se revisan antes de confirmar. Los perfiles anteriores de una sola
+especialidad continúan editables. Crear o editar el perfil no inicia consultas.
+
+En el radar, «Revisar anexos y aplicar OCR cuando haga falta» está marcado de
+forma predeterminada. Se puede desmarcar para consultar solo los datos del
+concurso y la evidencia ya guardada. El límite de archivos y páginas sigue
+siendo explícito; no se garantiza lectura completa de todos los anexos.
+
+OCR local requiere `tesseract`, el modelo `spa`, el modelo de orientación `osd`
+y `pdftoppm` en el PATH del proceso web/worker. En macOS:
+
+```bash
+brew install tesseract tesseract-lang poppler
+tesseract --list-langs
+```
+
+Reiniciar web y worker después de instalar. Los errores de binario, idioma,
+renderizado, texto vacío y límites se muestran en cada documento. Las páginas
+legibles de un documento parcial siguen contribuyendo a la afinidad. Los
+archivos fallidos u omitidos mantienen la evidencia como preliminar.
+
+La extracción `pdf-ocr-v2` vuelve a procesar documentos de versiones anteriores
+cuando se vuelven a consultar con anexos; no reescribe el corpus en segundo plano
+ni inicia una descarga histórica ilimitada. Las palabras cortadas por guion al
+final de línea pueden coincidir conservando el fragmento original de evidencia.
+
+Prueba nativa reproducible de todos los sectores comerciales:
+
+```bash
+uv run python scripts/audit_ocr.py --output artifacts/ocr-audit.json
+```
+
+Esta prueba mide recuperación de frases conocidas en documentos sintéticos.
+No mide precisión de clasificación ni calidad de OCR de todos los pliegos reales.
+Ver el alcance y los resultados en [ocr-review.md](ocr-review.md).

@@ -113,6 +113,27 @@ class JobQueue:
     def get(self, job_id):
         return self.collection.find_one({"_id": job_id, "installation_id": self.scope})
 
+    def summary(self):
+        scope = {"installation_id": self.scope}
+        fields = {"status": 1, "created_at": 1, "updated_at": 1, "payload": 1, "progress": 1}
+        return {
+            "latest": self.collection.find_one(
+                scope, fields, sort=[("created_at", -1), ("_id", -1)]
+            ),
+            "successful": self.collection.find_one(
+                {**scope, "status": "succeeded"}, fields, sort=[("updated_at", -1), ("_id", -1)]
+            ),
+            "partial": self.collection.find_one(
+                {
+                    **scope,
+                    "status": {"$in": ["failed", "canceled", "retry_wait"]},
+                    "progress": {"$gt": 0},
+                },
+                fields,
+                sort=[("updated_at", -1), ("_id", -1)],
+            ),
+        }
+
     def maintain(self):
         """Idempotent, scoped repairs. Never reclaim a valid lease or erase history."""
         now = utcnow()

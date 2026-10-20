@@ -1,8 +1,10 @@
 import secrets
-from contextlib import asynccontextmanager
-from datetime import timedelta
+from contextlib import asynccontextmanager, nullcontext
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Annotated
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -16,15 +18,31 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from .cache import OptionalCache
 from .config import Settings
 from .discovery import matching_catalog, suggest
+from .documents import MEDIA_EXTENSIONS, DocumentService
 from .jobs import JobQueue
-from .matching import Radar, deadline_status, normalized, score
+from .matching import Radar, deadline_status, normalized, tender_match
 from .models import CatalogItem, CompanyProfile
-from .sectors import SECTORS, specialty_terms
+from .runtime import local_worker
+from .sectors import SECTORS, combined_terms, selected_specialties
 from .security import DUMMY_HASH, PASSWORDS, check_password, valid_username, validate_password
 from .storage import ConflictError, Store, connect, token_hash, utcnow
 
 ROOT = Path(__file__).parent
 TEMPLATES = Jinja2Templates(directory=str(ROOT / "templates"))
+
+
+def cr_datetime(value):
+    if not isinstance(value, datetime):
+        return "Fecha desconocida"
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return (
+        value.astimezone(ZoneInfo("America/Costa_Rica")).strftime("%d/%m/%Y %H:%M")
+        + " (Costa Rica)"
+    )
+
+
+TEMPLATES.env.filters["cr_datetime"] = cr_datetime
 
 
 class RequestLimits:
@@ -59,7 +77,9 @@ class RequestLimits:
         await self.app(scope, limited_receive, send)
 
 
-def create_app(settings: Settings | None = None, store: Store | None = None):
+def create_app(
+    settings: Settings | None = None, store: Store | None = None, *, with_worker: bool = False
+):
     settings = settings or Settings()
     mongo = None
     if store is None:
@@ -72,10 +92,14 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
 
     @asynccontextmanager
     async def lifespan(app):
-        yield
-        cache.close()
-        if mongo is not None:
-            mongo.close()
+        try:
+            # Uvicorn retransmite SIGTERM después del lifespan: limpiar el worker antes.
+            with local_worker() if settings.app_mode == "local" and with_worker else nullcontext():
+                yield
+        finally:
+            cache.close()
+            if mongo is not None:
+                mongo.close()
 
     app = FastAPI(
         title="NexoLicitCR",
@@ -124,7 +148,8 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
 
     @app.exception_handler(HTTPException)
     def http_error(request, exc):
-        if exc.status_code in {400, 403, 409, 422, 503}:
+        # 404 también: un navegador nunca debe recibir JSON crudo; las APIs siguen en JSON.
+        if exc.status_code in {400, 403, 404, 409, 422, 503}:
             return user_error(request, str(exc.detail), exc.status_code)
         return JSONResponse(
             {"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers
@@ -158,7 +183,12 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
         return TEMPLATES.TemplateResponse(
             request=request,
             name=template,
-            context={"cache_status": cache.status, "sectors": SECTORS, **context},
+            context={
+                "cache_status": cache.status,
+                "sectors": SECTORS,
+                "selected_specialties": selected_specialties,
+                **context,
+            },
         )
 
     def login_page(request, error="", status=200, registered=False):
@@ -431,12 +461,15 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
         company_name: str = Form(default="", max_length=160),
         sector: str = Form(default="", max_length=40),
         specialty: str = Form(default="", max_length=40),
-        draft_services: str | None = Form(default=None, max_length=1000),
+        specialties: Annotated[list[str] | None, Form(max_length=8)] = None,
+        multiple: bool = Form(default=False),
+        draft_services: str | None = Form(default=None, max_length=6500),
         draft_coverage: str | None = Form(default=None, max_length=500),
         draft_exclusions: str | None = Form(default=None, max_length=2100),
         draft_category: str | None = Form(default=None, max_length=20),
         draft_sector: str | None = Form(default=None, max_length=40),
         draft_specialty: str | None = Form(default=None, max_length=40),
+        draft_specialties: Annotated[list[str] | None, Form(max_length=8)] = None,
     ):
         require_csrf(request, csrf)
         catalog = store.catalog()
@@ -444,7 +477,14 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
             raise ConflictError("El perfil cambió. Recargá antes de continuar.")
         old = catalog.get("profile") or {}
         try:
-            selected = specialty_terms(sector, specialty)
+            selections = selected_specialties(
+                specialties if specialties is not None else [] if multiple else None,
+                sector,
+                specialty,
+            )
+            selected = combined_terms(selections) if selections else None
+            if selections:
+                sector, specialty = selections[0].split(":")
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from None
         has_draft = any(
@@ -456,29 +496,38 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
                 draft_category,
                 draft_sector,
                 draft_specialty,
+                draft_specialties,
             )
         )
         if has_draft:
             try:
-                specialty_terms(draft_sector or "", draft_specialty or "")
+                draft_selections = selected_specialties(
+                    draft_specialties, draft_sector or "", draft_specialty or ""
+                )
             except ValueError as exc:
                 raise HTTPException(422, str(exc)) from None
             if draft_category not in {None, "all", "bienes", "servicios", "obras"}:
                 raise HTTPException(422, "Elegí un tipo de oportunidades válido.")
         company_name = company_name.strip() or old.get("company_name", "")
-        same_specialty = sector == old.get("sector", "") and specialty == old.get("specialty", "")
+        same_specialty = set(selections) == set(
+            selected_specialties(
+                old.get("specialties") or None, old.get("sector", ""), old.get("specialty", "")
+            )
+        )
         activity = activity.strip()
+        if "other:custom" in selections and len(activity) < 12:
+            raise HTTPException(422, "Describí tu otra actividad con al menos 12 caracteres.")
         if not activity and selected:
             activity = (
                 old["activity"]
                 if same_specialty and old.get("activity")
                 else f"{company_name or 'La empresa'} ofrece "
-                f"{SECTORS[sector]['specialties'][specialty][0].lower()}."
+                f"{', '.join(SECTORS[a]['specialties'][b][0].lower() for a, b in (v.split(':') for v in selections))}."
             )
         if selected and activity and len(activity) < 12:
             activity = (
                 f"{company_name or 'La empresa'} ofrece "
-                f"{SECTORS[sector]['specialties'][specialty][0].lower()}. "
+                f"{', '.join(SECTORS[a]['specialties'][b][0].lower() for a, b in (v.split(':') for v in selections))}. "
                 f"Detalle: {activity}"
             )
         if len(activity) < 12:
@@ -501,7 +550,7 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
                 "exclusions": [x.strip() for x in (draft_exclusions or "").split(",") if x.strip()],
                 "category": draft_category or "all",
             }
-            if sector == (draft_sector or "") and specialty == (draft_specialty or ""):
+            if set(selections) == set(draft_selections):
                 services = [x.strip() for x in (draft_services or "").split(",") if x.strip()]
         return render(
             request,
@@ -516,6 +565,7 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
                 "activity": activity,
                 "sector": sector,
                 "specialty": specialty,
+                "specialties": selections,
                 "services": services,
             },
         )
@@ -526,19 +576,27 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
         csrf: str = Form(max_length=128),
         revision: int = Form(ge=0),
         activity: str = Form(default="", max_length=1000),
-        services: str = Form(default="", max_length=1000),
+        services: str = Form(default="", max_length=6500),
         coverage: str = Form(default="", max_length=500),
         exclusions: str = Form(default="", max_length=2100),
         category: str = Form(default="all", max_length=20),
         company_name: str = Form(default="", max_length=160),
         sector: str = Form(default="", max_length=40),
         specialty: str = Form(default="", max_length=40),
+        specialties: Annotated[list[str] | None, Form(max_length=8)] = None,
+        multiple: bool = Form(default=False),
     ):
         require_csrf(request, csrf)
         if revision != store.catalog()["revision"]:
             raise ConflictError("El perfil cambió. Recargá antes de continuar.")
         try:
-            specialty_terms(sector, specialty)
+            selections = selected_specialties(
+                specialties if specialties is not None else [] if multiple else None,
+                sector,
+                specialty,
+            )
+            if selections:
+                sector, specialty = selections[0].split(":")
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from None
         if category not in {"all", "bienes", "servicios", "obras"}:
@@ -554,6 +612,7 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
                 "activity": activity,
                 "sector": sector,
                 "specialty": specialty,
+                "specialties": selections,
                 "services": [x.strip() for x in services.split(",") if x.strip()],
                 "coverage": coverage,
                 "exclusions": [x.strip() for x in exclusions.split(",") if x.strip()],
@@ -567,7 +626,7 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
         csrf: str = Form(max_length=128),
         revision: int = Form(ge=0),
         activity: str = Form(min_length=12, max_length=1000),
-        services: str = Form(max_length=1000),
+        services: str = Form(max_length=6500),
         coverage: str = Form(default="", max_length=500),
         exclusions: str = Form(default="", max_length=2100),
         category: str = Form(default="all"),
@@ -575,6 +634,8 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
         company_name: str = Form(default="", max_length=160),
         sector: str = Form(default="", max_length=40),
         specialty: str = Form(default="", max_length=40),
+        specialties: Annotated[list[str] | None, Form(max_length=8)] = None,
+        multiple: bool = Form(default=False),
     ):
         require_csrf(request, csrf)
         if not confirmed:
@@ -584,6 +645,11 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
                 company_name=company_name.strip(),
                 sector=sector,
                 specialty=specialty,
+                specialties=selected_specialties(
+                    specialties if specialties is not None else [] if multiple else None,
+                    sector,
+                    specialty,
+                ),
                 activity=activity,
                 services=[x.strip() for x in services.split(",") if x.strip()],
                 coverage=coverage,
@@ -592,7 +658,8 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
             )
         except ValueError:
             raise HTTPException(
-                422, "Revisá el perfil: entre 1 y 8 servicios, de hasta 100 caracteres cada uno."
+                422,
+                "Revisá el perfil: hasta 8 especialidades y 8 servicios por especialidad, de hasta 100 caracteres cada uno.",
             ) from None
         store.save_profile(profile, revision)
         return RedirectResponse("/opportunities?minimum=1", status_code=303)
@@ -604,6 +671,7 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
         revision: int = Form(ge=0),
         idempotency_key: str = Form(min_length=1, max_length=128),
         limit: int = Form(default=25, ge=10, le=100),
+        documents: bool = Form(default=False),
     ):
         require_csrf(request, csrf)
         catalog = store.catalog()
@@ -615,6 +683,7 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
                 limit,
                 "",
                 idempotency_key,
+                documents=documents,
                 profile_revision=revision,
             )
         except ValueError:
@@ -708,26 +777,7 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
             record=tender,
             tender=tender["payload"],
             current_status=deadline_status(tender["payload"]),
-            match=score(
-                tender["payload"],
-                matching_catalog(store.catalog()),
-                list(
-                    store.db.extracted_pages.find(
-                        {
-                            "document_id": {
-                                "$in": store.db.documents.distinct(
-                                    "_id",
-                                    {
-                                        "tender_key": key,
-                                        "current": True,
-                                        "state": {"$in": ["ready", "partial"]},
-                                    },
-                                )
-                            }
-                        }
-                    )
-                ),
-            ),
+            match=tender_match(store, key, tender["payload"], matching_catalog(store.catalog())),
             documents=list(store.db.documents.find({"tender_key": key})),
             offers=list(store.db.offers.find({"tender_key": key}).sort("fetched_at", -1).limit(50)),
             decision=store.db.decisions.find_one({"company": "company", "tender_key": key}) or {},
@@ -784,6 +834,7 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
             first_search=not rows
             and not store.db.jobs.find_one({"installation_id": settings.installation_id}),
             has_saved_tenders=bool(rows),
+            query_summary=queue.summary(),
             csrf=current["csrf"],
             rows=filtered[(page - 1) * 25 : page * 25],
             total=len(filtered),
@@ -919,30 +970,44 @@ def create_app(settings: Settings | None = None, store: Store | None = None):
             "document.html",
             csrf=current["csrf"],
             document=document,
+            original_available=bool(
+                document.get("gridfs_id")
+                and DocumentService(store, settings).verified_original(document)
+            ),
             pages=list(store.db.extracted_pages.find({"document_id": document_id}).sort("page", 1)),
         )
 
     @app.get("/documents/{document_id}/download")
     def document_download(request: Request, document_id: str):
         session(request)
-        import gridfs
-
         document = store.db.documents.find_one({"_id": document_id})
         if not document or not document.get("gridfs_id"):
             raise HTTPException(404)
-        fs = gridfs.GridFS(store.db)
-        if not fs.exists(document["gridfs_id"]):
-            raise HTTPException(404)
+        service = DocumentService(store, settings)
+        # Verify size and SHA-256 before the first byte: a 200 must never end truncated.
+        blob = service.verified_original(document)
+        if not blob:
+            raise HTTPException(
+                409, "El original no está completo; se reparará al reconsultar el concurso."
+            )
 
         def chunks():
-            with fs.get(document["gridfs_id"]) as stream:
+            with service.fs.get(blob) as stream:
                 while chunk := stream.read(65536):
                     yield chunk
 
+        # Attachment + nosniff: the browser saves the original, never renders or runs it.
+        extension = MEDIA_EXTENSIONS[document["media_type"]]
         return StreamingResponse(
             chunks(),
-            media_type="application/octet-stream",
-            headers={"Content-Disposition": 'attachment; filename="documento.bin"'},
+            media_type=document["media_type"],
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="anexo-{document["sha256"][:12]}.{extension}"'
+                ),
+                "Content-Length": str(document["size"]),
+                "X-Content-Type-Options": "nosniff",
+            },
         )
 
     return app

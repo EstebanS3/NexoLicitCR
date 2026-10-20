@@ -149,9 +149,10 @@ class Document(Contract):
 class CompanyProfile(Contract):
     sector: str = Field(default="", max_length=40)
     specialty: str = Field(default="", max_length=40)
+    specialties: list[str] = Field(default_factory=list, max_length=8)
     company_name: str = Field(default="", max_length=160)
     activity: str = Field(min_length=12, max_length=1000)
-    services: list[str] = Field(min_length=1, max_length=8)
+    services: list[str] = Field(min_length=1, max_length=64)
     coverage: str = Field(default="", max_length=500)
     exclusions: list[str] = Field(default_factory=list, max_length=20)
     category: Literal["all", "bienes", "servicios", "obras"] = "all"
@@ -159,9 +160,16 @@ class CompanyProfile(Contract):
 
     @model_validator(mode="after")
     def validate_services(self):
-        from .sectors import specialty_terms
+        from .sectors import selected_specialties
 
-        specialty_terms(self.sector, self.specialty)
+        self.specialties = selected_specialties(
+            self.specialties or None, self.sector, self.specialty
+        )
+        if self.specialties:
+            self.sector, self.specialty = self.specialties[0].split(":")
+        limit = 8 * max(1, len(self.specialties))
+        if len(self.services) > limit:
+            raise ValueError("Elegí hasta 8 servicios por especialidad.")
         for term in self.services + self.exclusions:
             if not term.strip() or len(term) > 100:
                 raise ValueError("Servicios o exclusiones inválidos")

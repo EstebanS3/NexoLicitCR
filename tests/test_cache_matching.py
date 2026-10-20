@@ -45,7 +45,7 @@ def test_cache_namespace_isolates_apps_environments_installations_and_databases(
         {"environment": "test"},
         {"installation_id": "second"},
         {"atlas_base": "other_database"},
-        {"atlas_uri": "mongodb+srv://other.mongodb.net/"},
+        {"atlas_uri": "mongodb+srv://other.example.mongodb.net/"},
     ]:
         cfg = Settings(_env_file=None, **settings.model_dump() | patch)
         keys.add(OptionalCache(cfg).key("radar", 1, 1, "v1", {}))

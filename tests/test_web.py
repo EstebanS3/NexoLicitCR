@@ -325,3 +325,16 @@ def test_resume_job_requires_csrf_and_preserves_history(client, store):
         client.post(f"/jobs/{job_id}/resume", data={"csrf": token}, headers=ORIGIN).status_code
         == 404
     )
+
+
+def test_missing_pages_are_html_for_browsers_and_json_for_api(client):
+    login(client)
+    browser = {"accept": "text/html,application/xhtml+xml"}
+    for path in ("/catalog?edit=missing", "/tenders/absent"):
+        page = client.get(path, headers=browser)
+        assert page.status_code == 404
+        assert page.headers["content-type"].startswith("text/html")
+        assert 'role="alert"' in page.text and "No encontramos esta página." in page.text
+        assert "Volver al formulario" not in page.text
+    api = client.get("/tenders/absent", headers={"accept": "application/json"})
+    assert api.status_code == 404 and "detail" in api.json()

@@ -78,6 +78,7 @@ class Store:
             [("tender_key", 1), ("source_identity", 1), ("sha256", 1)], unique=True
         )
         self.db.documents.create_index("state")
+        self.db.fs.files.create_index("metadata.sha256")
         self.db.extracted_pages.create_index([("document_id", 1), ("page", 1)], unique=True)
         self.db.offers.create_index(
             [("tender_key", 1), ("source_hash", 1), ("position", 1)], unique=True

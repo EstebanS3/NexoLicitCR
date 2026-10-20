@@ -21,7 +21,13 @@ NexoLicitCR busca acercar las compras públicas de Costa Rica a las pequeñas y 
 
 ![Estructura de datos MongoDB](docs/assets/mongodb-schema.png)
 
-Ver [arquitectura y librerías](docs/architecture.md), [operación y Docker](docs/operations.md) y [estado verificable de los issues](docs/planning-status.md).
+**Entrega universitaria:** [alcance obligatorio y ampliaciones opcionales](docs/alcance-academico.md), con [historias actualizadas](docs/historias/README.md). Se demuestra un entorno MongoDB real; Docker/Compose, Redis real, validación extensa de infraestructura y evaluación con empresas son opcionales.
+
+La [memoria escrita de validación y guion de exposición](docs/validacion/README.md) reúne las pruebas, la revisión visual y sus límites.
+
+Ver [arquitectura y librerías](docs/architecture.md), [operación y Docker opcional](docs/operations.md) y [estado verificable de los issues](docs/planning-status.md).
+
+**Documentación integral:** [guía extensa en Markdown](docs/DOCUMENTACION.md). Incluye propuesta de valor, experiencia, arquitectura, instalación, operación y evolución, con una narrativa preparada para presentar el proyecto.
 
 ## Instalación
 
@@ -42,7 +48,7 @@ Completar `.env` localmente:
 | `ATLAS_AUTHDB` | Base de autenticación, normalmente `admin`. |
 | `APP_MODE` | `local` o `server`. |
 | `PUBLIC_ORIGIN` | Origen exacto del navegador; local: `http://localhost:8000`. |
-| `SICOP_TIMEZONE` | Vacío conserva fechas sin zona como pendientes; configurar una zona IANA solo después de validar su significado. |
+| `SICOP_TIMEZONE` | `America/Costa_Rica`: SICOP publica fechas sin offset en hora local ([validación](docs/source-validation.md)). Vacío las conserva como pendientes. |
 | `REDIS_URL` | Vacío deshabilita la caché; configurar un usuario Redis ACL propio en servidor. |
 
 `MONGO_MODE=atlas` es el valor predeterminado. TLS Atlas siempre está habilitado. No se admiten opciones que relajen la validación de certificados. `.env` nunca debe versionarse.
@@ -59,6 +65,17 @@ En una instalación nueva, abrir `http://localhost:8000`: si no hay cuenta, la p
 Como alternativa para quien administra el servidor, `uv run nexolicit create-admin` solicita la contraseña por entrada oculta (14–256 caracteres), sin contraseña predeterminada. Solo permite un administrador; no reemplaza cuentas existentes. Inicializar índices es idempotente y no borra colecciones. Mantener credenciales y copias de seguridad fuera de Git.
 
 Para servidor: configurar `APP_MODE=server`, origen HTTPS y un proxy TLS que preserve el Host; exponer exclusivamente el proxy y restringir el puerto del backend. El servidor no confía automáticamente en cabeceras reenviadas. Este repositorio no provisiona Atlas ni despliega servicios públicos.
+
+### Docker Desktop + Atlas
+
+Con Docker Desktop abierto, completar `.env.atlas` usando [.env.atlas.example](.env.atlas.example) o importar un archivo de conexión existente:
+
+```bash
+uv run python scripts/configure_atlas.py /ruta/al/ejemplo/atlas.env
+docker compose up --build -d --wait
+```
+
+Abrir **http://localhost:8000** y registrar la primera cuenta. Web y worker comparten Atlas; `init-db` prepara los índices automáticamente. El `.env` local se conserva. [Operación, Redis y pruebas reproducibles](docs/operations.md#docker-desktop-con-atlas-externo) · [Validación real Docker/Atlas](docs/validacion/docker-atlas.md).
 
 ## Desarrollo con MongoDB local
 
@@ -123,7 +140,7 @@ Para verificar Atlas de forma explícita, configurar `.env` y una base de prueba
 NEXO_TEST_ATLAS=1 NEXO_TEST_DATABASE=nexolicit_test_integration uv run pytest -m integration
 ```
 
-La prueba crea índices y catálogo inicial si faltan; limpia únicamente los documentos de concursos que ella creó, nunca toda la base. Usar una base descartable dedicada. La lógica de Redis se prueba con un doble; OCR escaneado/mixto real, Redis real y Atlas requieren validación adicional.
+La prueba crea índices y catálogo inicial si faltan; limpia únicamente los documentos de concursos que ella creó, nunca toda la base. Usar una base descartable dedicada. La lógica de Redis se prueba con un doble. La entrega académica puede usar MongoDB local real; Redis real y un segundo entorno Atlas son ampliaciones opcionales. La evidencia OCR y sus límites están en [ocr-review.md](docs/ocr-review.md).
 
 ## Privacidad y límites
 
@@ -140,6 +157,6 @@ Distribuido bajo la [licencia MIT](LICENSE).
 
 ## Evolución propuesta
 
-[Descubrimiento guiado desde la actividad de la empresa](docs/guided-discovery.md): configuración de empresa, sector, especialidad y revisión de servicios en `/company` y `/discover`. Incluye 20 sectores y 65 especialidades editables, oportunidades explicadas y consultas acotadas de SICOP. Las sugerencias son deterministas y requieren confirmación; feedback asistido y evaluación humana siguen pendientes.
+[Descubrimiento guiado desde la actividad de la empresa](docs/guided-discovery.md): configuración de empresa, sector, especialidad y revisión de servicios en `/company` y `/discover`. Incluye 20 sectores y 66 opciones de especialidad (65 predefinidas y una personalizada), oportunidades explicadas y consultas acotadas de SICOP. Las sugerencias son deterministas y requieren confirmación; feedback asistido y evaluación humana siguen pendientes.
 
 La cola conserva avances y respeta pausas de SICOP ante HTTP 429. Desde Actividad se pueden reanudar consultas fallidas o canceladas sin perder checkpoints ni duplicar continuaciones. También: `uv run nexolicit resume ID_DE_CONSULTA`. Ver [operación y límites](docs/operations.md).

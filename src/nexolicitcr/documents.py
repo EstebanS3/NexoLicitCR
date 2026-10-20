@@ -9,17 +9,22 @@ import socket
 import subprocess
 import sys
 import tempfile
+import time
 from datetime import timedelta
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit
+from uuid import uuid4
 
 import gridfs
 import httpx
-from gridfs.errors import FileExists
+from gridfs.errors import CorruptGridFile, FileExists, NoFile
 
+from .extractor import VERSION as EXTRACTOR_VERSION
 from .models import Document, ExtractionPage
-from .sicop import BASE, SourceError
+from .sicop import BASE, HEADERS, SourceError, SourceRateLimited, retry_after_seconds
 from .storage import utcnow
+
+MEDIA_EXTENSIONS = {"application/pdf": "pdf", "image/png": "png", "image/jpeg": "jpg"}
 
 
 class DocumentError(SourceError):
@@ -90,18 +95,22 @@ def download(url, target, settings, client=None):
 
 
 def metadata_get(path, params, text=False):
+    try:
+        return _metadata_get(path, params, text)
+    except httpx.HTTPError:
+        raise DocumentError("DOCUMENT_METADATA_NETWORK_FAILED") from None
+
+
+def _metadata_get(path, params, text=False):
     with httpx.Client(timeout=20, follow_redirects=False, trust_env=False) as client:
         with client.stream(
             "GET",
             BASE + path,
             params=params,
-            headers={
-                "Origin": "https://www.sicop.go.cr",
-                "Referer": "https://www.sicop.go.cr/",
-                "Accept": "application/json",
-                "User-Agent": "Mozilla/5.0",
-            },
+            headers=HEADERS,
         ) as response:
+            if response.status_code == 429:
+                raise SourceRateLimited(retry_after_seconds(response.headers.get("retry-after")))
             if response.status_code != 200 or (
                 not text and "json" not in response.headers.get("content-type", "")
             ):
@@ -123,9 +132,83 @@ class DocumentService:
     def __init__(self, store, settings):
         self.store, self.settings = store, settings
         self.fs = gridfs.GridFS(store.db)
+        self._last_metadata_request = None
+
+    def _complete_blob(self, blob, metadata):
+        """A duplicate chunk is not proof that a complete, readable blob exists."""
+        if not blob:
+            return False
+        try:
+            with self.fs.get(blob) as source:
+                if source.length != metadata["size"]:
+                    return False
+                digest, size = hashlib.sha256(), 0
+                while chunk := source.read(65536):
+                    size += len(chunk)
+                    if size > metadata["size"]:
+                        return False
+                    digest.update(chunk)
+                return size == metadata["size"] and digest.hexdigest() == metadata["sha256"]
+        except (NoFile, CorruptGridFile):
+            return False
+
+    def verified_original(self, document):
+        """GridFS id of the complete original, or None; never stream a truncated file."""
+        if (
+            document.get("media_type") not in MEDIA_EXTENSIONS
+            or not document.get("sha256")
+            or not isinstance(document.get("size"), int)
+        ):
+            return None
+        blob = document.get("gridfs_id")
+        return blob if self._complete_blob(blob, document) else None
+
+    def _store_blob(self, path, metadata, guard):
+        preferred = metadata["sha256"]
+        if self._complete_blob(preferred, metadata):
+            return preferred
+        for candidate in self.store.db.fs.files.find(
+            {"metadata.sha256": preferred}, {"_id": 1}
+        ).limit(3):
+            if self._complete_blob(candidate["_id"], metadata):
+                return candidate["_id"]
+        for _ in range(3):
+            # Each writer owns its chunks, including GridFS's abort-on-conflict cleanup.
+            blob = f"{preferred}-{uuid4().hex}"
+            guard()
+            try:
+                with path.open("rb") as source:
+                    self.fs.put(
+                        source,
+                        _id=blob,
+                        filename=preferred,
+                        contentType=metadata["media_type"],
+                        metadata={"sha256": preferred},
+                    )
+            except FileExists:
+                # Reuse only an independently verified complete file.
+                if self._complete_blob(blob, metadata):
+                    return blob
+                continue
+            if self._complete_blob(blob, metadata):
+                return blob
+            raise DocumentError("DOCUMENT_STORAGE_INCOMPLETE")
+        raise DocumentError("DOCUMENT_STORAGE_CONFLICT")
+
+    def _metadata(self, path, params, text=False):
+        if self._last_metadata_request is not None:
+            time.sleep(
+                max(
+                    0,
+                    self.settings.sicop_request_delay_seconds
+                    - (time.monotonic() - self._last_metadata_request),
+                )
+            )
+        self._last_metadata_request = time.monotonic()
+        return metadata_get(path, params, text)
 
     def ingest_tender(self, tender, guard=lambda session=None: None):
-        refs = metadata_get(
+        refs = self._metadata(
             "/bid/api/v1/public/epCartelFile/getCartelFilesById",
             {"cartelNo": tender.source_id, "cartelSeq": tender.sequence},
         )
@@ -143,21 +226,23 @@ class DocumentService:
                 self.store.db.documents.update_one(
                     {"_id": marker},
                     {
-                        "$setOnInsert": {
+                        "$set": {
                             "tender_key": tender.key,
                             "source_identity": identity,
                             "sha256": "",
                             "state": "omitted",
+                            "current": True,
                             "error_code": "FILE_COUNT_LIMIT",
                             "fetched_at": utcnow(),
                         }
                     },
                     upsert=True,
                 )
+                self.store.db.metadata.update_one({"_id": "corpus"}, {"$inc": {"generation": 1}})
                 states.append("omitted")
                 continue
             try:
-                location = metadata_get(
+                location = self._metadata(
                     "/comn/api/v1/public/comnFile/downloadWithPAR",
                     {"fileUrl": (source_path.rstrip("/") + "/" + name).lstrip("/")},
                     text=True,
@@ -165,8 +250,13 @@ class DocumentService:
                 if not isinstance(location, str):
                     raise DocumentError("DOCUMENT_DOWNLOAD_URL_INVALID")
                 document_id = self.ingest(tender.key, identity, location, guard)
+                guard()
+                if self.store.db.documents.delete_one({"_id": marker}).deleted_count:
+                    self.store.db.metadata.update_one(
+                        {"_id": "corpus"}, {"$inc": {"generation": 1}}
+                    )
                 states.append(self.store.db.documents.find_one({"_id": document_id})["state"])
-            except (DocumentError, httpx.HTTPError):
+            except (DocumentError, httpx.HTTPError) as exc:
                 guard()
                 self.store.db.documents.update_one(
                     {"_id": marker},
@@ -176,12 +266,16 @@ class DocumentService:
                             "source_identity": identity,
                             "sha256": "",
                             "state": "failed",
-                            "error_code": "DOCUMENT_PROCESSING_FAILED",
+                            "current": True,
+                            "error_code": str(exc)
+                            if isinstance(exc, DocumentError)
+                            else "DOCUMENT_NETWORK_FAILED",
                             "fetched_at": utcnow(),
                         }
                     },
                     upsert=True,
                 )
+                self.store.db.metadata.update_one({"_id": "corpus"}, {"$inc": {"generation": 1}})
                 states.append("failed")
         # References that disappeared must no longer contribute evidence.
         identities = [
@@ -194,7 +288,7 @@ class DocumentService:
             changed = self.store.db.documents.update_many(
                 {
                     "tender_key": tender.key,
-                    "current": True,
+                    "current": {"$ne": False},
                     "source_identity": {"$nin": identities},
                 },
                 {"$set": {"current": False}},
@@ -218,30 +312,41 @@ class DocumentService:
             document_id = hashlib.sha256(
                 (tender_key + identity + metadata["sha256"]).encode()
             ).hexdigest()
-            if self.store.db.documents.find_one(
-                {"_id": document_id, "state": "ready", "current": True}
-            ):
+            existing = self.store.db.documents.find_one(
+                {
+                    "_id": document_id,
+                    "state": "ready",
+                    "current": True,
+                    "extractor_version": EXTRACTOR_VERSION,
+                }
+            )
+            if existing and self._complete_blob(existing.get("gridfs_id"), metadata):
                 return document_id
             guard()
-            self.store.db.documents.update_one(
-                {"_id": document_id},
-                {
-                    "$setOnInsert": {
-                        "tender_key": tender_key,
-                        "source_identity": identity,
-                        **metadata,
-                        "state": "processing",
-                        "fetched_at": utcnow(),
-                    }
-                },
-                upsert=True,
-            )
-            blob = metadata["sha256"]
-            try:
-                with path.open("rb") as source:
-                    self.fs.put(source, _id=blob, filename=blob, contentType=metadata["media_type"])
-            except FileExists:
-                pass
+
+            def prepare(session):
+                guard(session)
+                self.store.db.documents.update_one(
+                    {"_id": document_id},
+                    {
+                        "$setOnInsert": {
+                            "tender_key": tender_key,
+                            "source_identity": identity,
+                            **metadata,
+                            "fetched_at": utcnow(),
+                        },
+                        "$set": {"state": "processing", "error_code": None},
+                    },
+                    upsert=True,
+                    session=session,
+                )
+                self.store.db.metadata.update_one(
+                    {"_id": "corpus"}, {"$inc": {"generation": 1}}, upsert=True, session=session
+                )
+
+            with self.store.db.client.start_session() as session:
+                session.with_transaction(prepare)
+            blob = self._store_blob(path, metadata, guard)
             output = Path(directory) / "pages.json"
             try:
                 command = [
@@ -262,7 +367,12 @@ class DocumentService:
                     try:
                         code = process.wait(timeout=self.settings.extraction_timeout_seconds)
                     except subprocess.TimeoutExpired:
-                        os.killpg(process.pid, signal.SIGKILL)
+                        if sys.platform == "win32":
+                            process.kill()
+                        elif hasattr(os, "killpg"):
+                            os.killpg(process.pid, signal.SIGKILL)
+                        else:
+                            process.kill()
                         process.wait()
                         raise
                     if code:
@@ -289,6 +399,10 @@ class DocumentService:
                     {"$set": {"current": False}},
                     session=session,
                 )
+                self.store.db.extracted_pages.delete_many(
+                    {"document_id": document_id, "page": {"$nin": [p["page"] for p in pages]}},
+                    session=session,
+                )
                 for page in pages:
                     self.store.db.extracted_pages.update_one(
                         {"document_id": document_id, "page": page["page"]},
@@ -306,6 +420,7 @@ class DocumentService:
                             "error_code": error,
                             "pages": len(pages),
                             "processed_at": utcnow(),
+                            "extractor_version": EXTRACTOR_VERSION,
                         }
                     },
                     session=session,
@@ -322,9 +437,46 @@ class DocumentService:
         # Read-only reconciliation: never delete a live/in-progress upload automatically.
         cutoff = utcnow() - timedelta(days=1)
         referenced = self.store.db.documents.distinct("gridfs_id")
-        return [
-            {"id": str(row["_id"]), "uploaded_at": row["uploadDate"].isoformat()}
+        report = [
+            {
+                "id": str(row["_id"]),
+                "kind": "unreferenced_file",
+                "uploaded_at": row["uploadDate"].isoformat(),
+            }
             for row in self.store.db.fs.files.find(
                 {"_id": {"$nin": referenced}, "uploadDate": {"$lt": cutoff}}
             )
         ]
+        # Missing manifests can belong to an active upload. Report them without deletion.
+        unfinished = self.store.db.fs.chunks.aggregate(
+            [
+                {
+                    "$lookup": {
+                        "from": "fs.files",
+                        "localField": "files_id",
+                        "foreignField": "_id",
+                        "as": "file",
+                    }
+                },
+                {"$match": {"file": []}},
+                {
+                    "$group": {
+                        "_id": "$files_id",
+                        "first_chunk": {"$min": "$_id"},
+                        "chunks": {"$sum": 1},
+                    }
+                },
+            ]
+        )
+        for row in unfinished:
+            started = getattr(row["first_chunk"], "generation_time", None)
+            report.append(
+                {
+                    "id": str(row["_id"]),
+                    "kind": "chunks_without_file",
+                    "chunks": row["chunks"],
+                    "uploaded_at": started.isoformat() if started else None,
+                    "older_than_one_day": started < cutoff if started else None,
+                }
+            )
+        return report
