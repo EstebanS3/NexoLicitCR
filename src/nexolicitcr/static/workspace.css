@@ -14,6 +14,7 @@
 /* Labels inherit the accessible link color, not the legacy icon tint. */
 .workspace-nav .nav-link>span:not(.nav-active-dot){color:inherit}
 .opportunity-body,.dashboard-grid>section,.detail-grid>section{min-width:0}
+.detail-grid>aside{min-width:0;overflow-wrap:anywhere}
 .opportunity h2,.opportunity h3,.detail-hero h1{overflow-wrap:anywhere}
 
 /* Multi-specialty selection keeps native controls and keyboard navigation. */

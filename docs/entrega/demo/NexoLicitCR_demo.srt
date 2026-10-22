@@ -1,0 +1,219 @@
+1
+00:00:00,000 --> 00:00:05,914
+Esta es Nexo Licit Costa Rica, una aplicación para ayudar a pequeñas empresas
+
+2
+00:00:05,914 --> 00:00:11,829
+a revisar oportunidades de contratación pública. En esta demostración usaremos Brújula TI, una
+
+3
+00:00:11,829 --> 00:00:17,743
+empresa ficticia de soporte y redes. Creamos una base independiente y una cuenta
+
+4
+00:00:17,743 --> 00:00:23,657
+propia. Todos los concursos, instituciones y documentos que veremos son sintéticos; las interacciones
+
+5
+00:00:23,657 --> 00:00:26,387
+se realizan en la aplicación real.
+
+6
+00:00:27,887 --> 00:00:33,313
+Al ingresar encontramos el espacio de la empresa. El perfil conserva el nombre
+
+7
+00:00:33,313 --> 00:00:38,740
+comercial, las actividades y las especialidades que orientan la búsqueda. Cada instalación administra
+
+8
+00:00:38,740 --> 00:00:44,166
+una empresa. La configuración se revisa antes de confirmarse y queda almacenada en
+
+9
+00:00:44,166 --> 00:00:49,593
+Mongo DB. Así podemos volver al mismo contexto sin empezar de nuevo en
+
+10
+00:00:49,593 --> 00:00:50,428
+cada sesión.
+
+11
+00:00:51,928 --> 00:00:57,689
+El catálogo describe lo que Brújula TI ofrece: soporte técnico, mantenimiento y redes.
+
+12
+00:00:57,689 --> 00:01:03,451
+Los términos y códigos permiten relacionar la oferta con la información de los
+
+13
+00:01:03,451 --> 00:01:09,212
+concursos. El catálogo es editable y conserva su propia revisión. Aquí mostramos datos
+
+14
+00:01:09,212 --> 00:01:14,974
+preparados para repetir el recorrido; no estamos afirmando que una empresa real haya
+
+15
+00:01:14,974 --> 00:01:16,303
+validado estas coincidencias.
+
+16
+00:01:17,803 --> 00:01:23,233
+El radar reúne oportunidades y muestra una afinidad orientativa. Cada tarjeta conserva el
+
+17
+00:01:23,233 --> 00:01:28,662
+título, la institución, el cierre y una explicación de por qué aparece. También
+
+18
+00:01:28,662 --> 00:01:34,091
+informa cuándo se verificó el contenido. La puntuación ayuda a priorizar la revisión;
+
+19
+00:01:34,091 --> 00:01:39,521
+no garantiza que la empresa cumpla todos los requisitos ni que vaya a
+
+20
+00:01:39,521 --> 00:01:40,773
+ganar una contratación.
+
+21
+00:01:42,273 --> 00:01:48,047
+Podemos buscar por título o institución y combinar filtros de estado, tipo de
+
+22
+00:01:48,047 --> 00:01:53,821
+concurso y afinidad mínima. Aplicaremos una búsqueda de soporte para concentrarnos en ese
+
+23
+00:01:53,821 --> 00:01:59,595
+servicio. Los resultados se calculan sobre el corpus guardado. En una instalación conectada,
+
+24
+00:01:59,595 --> 00:02:05,369
+consultar novedades requiere una acción explícita; el radar no representa todo el contenido
+
+25
+00:02:05,369 --> 00:02:06,257
+de SICOP.
+
+26
+00:02:07,757 --> 00:02:13,648
+Abrimos un concurso de ejemplo para revisar sus líneas, cantidades y condiciones. A
+
+27
+00:02:13,648 --> 00:02:19,538
+la derecha aparecen las coincidencias que respaldan la afinidad. Esta vista conecta la
+
+28
+00:02:19,538 --> 00:02:25,429
+recomendación con su evidencia y permite distinguir información disponible de información pendiente. En
+
+29
+00:02:25,429 --> 00:02:31,319
+los datos reales, siempre corresponde revisar el expediente original y las condiciones antes
+
+30
+00:02:31,319 --> 00:02:32,226
+de participar.
+
+31
+00:02:33,726 --> 00:02:38,778
+Los documentos se almacenan en Grid FS y su texto se organiza por
+
+32
+00:02:38,778 --> 00:02:43,830
+página. Podemos leer la evidencia o descargar el original. El archivo de esta
+
+33
+00:02:43,830 --> 00:02:48,882
+demo es sintético. El sistema admite extracción de PDF y OCR cuando está
+
+34
+00:02:48,882 --> 00:02:53,935
+configurado; si una página no puede leerse, muestra el estado parcial en lugar
+
+35
+00:02:53,935 --> 00:02:56,266
+de dar el expediente por completo.
+
+36
+00:02:57,766 --> 00:03:03,495
+Ahora registramos una decisión real en nuestra base de demostración. Elegimos en seguimiento
+
+37
+00:03:03,495 --> 00:03:09,223
+y añadimos una nota: revisar experiencia y preparar la propuesta técnica. Guardamos el
+
+38
+00:03:09,223 --> 00:03:14,951
+formulario. Las decisiones permanecen separadas de los resultados calculados, para conservar el criterio
+
+39
+00:03:14,951 --> 00:03:20,679
+de la empresa aunque cambie el perfil o se actualice el contenido del
+
+40
+00:03:20,679 --> 00:03:21,120
+concurso.
+
+41
+00:03:22,620 --> 00:03:27,809
+Volvemos al radar y seleccionamos la vista en seguimiento. La oportunidad aparece con
+
+42
+00:03:27,809 --> 00:03:32,999
+el estado que acabamos de guardar. Este recorrido muestra lectura, filtrado y escritura
+
+43
+00:03:32,999 --> 00:03:38,189
+con persistencia real en Mongo DB. Los datos se preparan mediante un script
+
+44
+00:03:38,189 --> 00:03:43,379
+reproducible y se mantienen aislados de la base que utiliza el propietario del
+
+45
+00:03:43,379 --> 00:03:43,778
+proyecto.
+
+46
+00:03:45,278 --> 00:03:51,032
+La pantalla de actividad permite revisar estados y resultados de trabajos. Aquí se
+
+47
+00:03:51,032 --> 00:03:56,786
+presenta un registro sintético de la carga local, no una consulta ejecutada contra
+
+48
+00:03:56,786 --> 00:04:02,540
+SICOP. En el sistema, Mongo DB conserva los trabajos durables, perfiles y concursos;
+
+49
+00:04:02,540 --> 00:04:08,294
+Grid FS almacena archivos. Redis es una caché opcional: la aplicación conserva un
+
+50
+00:04:08,294 --> 00:04:12,277
+camino de cálculo cuando la caché no está disponible.
+
+51
+00:04:13,777 --> 00:04:20,305
+La versión cero punto nueve reúne perfil, catálogo, radar explicado, documentos y seguimiento.
+
+52
+00:04:20,305 --> 00:04:26,832
+El repositorio incluye instalación, datos de prueba y evidencia técnica con sus límites.
+
+53
+00:04:26,832 --> 00:04:33,360
+El roadmap propone evaluar relevancia con empresas y ampliar las mediciones. Esta demo
+
+54
+00:04:33,360 --> 00:04:39,888
+muestra un escenario ficticio reproducible; la disponibilidad de SICOP, la precisión comercial y
+
+55
+00:04:39,888 --> 00:04:42,900
+los comparables adjudicados requieren validaciones adicionales.

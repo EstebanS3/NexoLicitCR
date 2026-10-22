@@ -1,0 +1,259 @@
+1
+00:00:00,150 --> 00:00:04,715
+Hola, soy la encargada comercial de Mesa Norte Catering, una empresa
+
+2
+00:00:04,715 --> 00:00:09,280
+ficticia. Voy a buscar una oportunidad real en SICOP. Creo mi
+
+3
+00:00:09,280 --> 00:00:13,429
+cuenta y entro a un espacio nuevo, sin concursos precargados.
+
+4
+00:00:13,950 --> 00:00:18,231
+Nuestra empresa se llama Mesa Norte Catering. Atendemos talleres y eventos
+
+5
+00:00:18,231 --> 00:00:22,513
+en la región Huetar Norte. Voy a configurar el radar pensando
+
+6
+00:00:22,513 --> 00:00:26,405
+en lo que realmente podemos ofrecer dentro de este escenario.
+
+7
+00:00:26,910 --> 00:00:32,273
+Elijo alimentación y la especialidad de preparación de alimentos y catering.
+
+8
+00:00:32,273 --> 00:00:37,636
+Así el sistema propone términos concretos para buscar coincidencias. No necesito
+
+9
+00:00:37,636 --> 00:00:40,561
+adivinar códigos de contratación para comenzar.
+
+10
+00:00:41,070 --> 00:00:46,266
+Reviso el perfil antes de confirmarlo. Incluyo refrigerios, almuerzos y opciones
+
+11
+00:00:46,266 --> 00:00:51,461
+vegetarianas, con menaje y transporte. Registro nuestra cobertura en Huetar Norte
+
+12
+00:00:51,461 --> 00:00:56,657
+y selecciono concursos de servicios. Esa cobertura es una referencia: tendré
+
+13
+00:00:56,657 --> 00:00:59,963
+que comprobar el lugar de cada evento.
+
+14
+00:01:00,470 --> 00:01:05,456
+Ahora agrego un servicio a mi catálogo: catering para talleres y
+
+15
+00:01:05,456 --> 00:01:10,443
+capacitaciones. Describo el menú y la logística, y añado palabras clave.
+
+16
+00:01:10,443 --> 00:01:15,429
+Quiero que las coincidencias reflejen nuestra oferta comercial, sin confundir una
+
+17
+00:01:15,429 --> 00:01:18,602
+descripción de ejemplo con experiencia ya acreditada.
+
+18
+00:01:19,110 --> 00:01:24,166
+Ya puedo buscar. Elijo diez concursos recientes de servicios. Primero consultaré
+
+19
+00:01:24,166 --> 00:01:29,222
+sus datos y condiciones; después revisaré anexos. Pulso el botón y
+
+20
+00:01:29,222 --> 00:01:34,277
+la consulta entra en la cola real. Mientras SICOP responde, el
+
+21
+00:01:34,277 --> 00:01:36,116
+sistema conserva el avance.
+
+22
+00:01:44,630 --> 00:01:49,451
+En los diez concursos más recientes no aparece alimentación. No significa
+
+23
+00:01:49,451 --> 00:01:54,272
+que no existan oportunidades. Amplío la consulta a cincuenta y activo
+
+24
+00:01:54,272 --> 00:01:59,093
+la revisión de anexos. Los resultados dependen del alcance que elija.
+
+25
+00:02:07,630 --> 00:02:12,126
+Ya tengo el caso que quiero revisar. Solicito detener lo pendiente
+
+26
+00:02:12,126 --> 00:02:16,622
+y paso a los resultados recuperados. La cancelación conserva los concursos
+
+27
+00:02:16,622 --> 00:02:19,075
+y documentos que ya se guardaron.
+
+28
+00:02:19,590 --> 00:02:23,995
+En la consulta ampliada aparece un servicio de alimentación para un
+
+29
+00:02:23,995 --> 00:02:28,400
+taller en Huetar Norte. La afinidad me ayuda a priorizar la
+
+30
+00:02:28,400 --> 00:02:31,604
+lectura; todavía tengo que revisar condiciones y requisitos.
+
+31
+00:02:32,110 --> 00:02:37,064
+Abro el expediente real. El cierre informado es el veintiséis de
+
+32
+00:02:37,064 --> 00:02:42,018
+octubre a las diez de la mañana. Leo las líneas y
+
+33
+00:02:42,018 --> 00:02:46,972
+las condiciones: piden refrigerio, almuerzo, opción vegetariana, menaje y transporte. La
+
+34
+00:02:46,972 --> 00:02:51,926
+cantidad definitiva se avisa cinco días naturales antes. Para la admisibilidad,
+
+35
+00:02:51,926 --> 00:02:56,880
+solicitan experiencia en tres eventos de más de treinta personas, además
+
+36
+00:02:56,880 --> 00:02:59,132
+de permisos y certificados vigentes.
+
+37
+00:02:59,670 --> 00:03:04,050
+Esto sí parece cercano a nuestro giro. Lo marco como relevante
+
+38
+00:03:04,050 --> 00:03:08,431
+y dejo una nota privada: validar el menú, la logística y
+
+39
+00:03:08,431 --> 00:03:12,811
+el aviso previo. Me interesa conservar el razonamiento, no solamente marcar
+
+40
+00:03:12,811 --> 00:03:17,192
+una casilla. Guardar esta nota no envía un mensaje a la
+
+41
+00:03:17,192 --> 00:03:17,590
+institución.
+
+42
+00:03:18,110 --> 00:03:23,170
+La consulta encontró archivos no compatibles en otros concursos. Para este
+
+43
+00:03:23,170 --> 00:03:28,231
+caso recuperamos un PDF de nueve páginas. Aquí aparecen una fecha
+
+44
+00:03:28,231 --> 00:03:33,291
+potencial, cinco de noviembre, y la ubicación en Javillos de Florencia.
+
+45
+00:03:33,291 --> 00:03:36,052
+Cotejaría la documentación vigente en SICOP.
+
+46
+00:03:37,550 --> 00:03:42,593
+Decido darle seguimiento. Actualizo la nota con tareas concretas: preparar el
+
+47
+00:03:42,593 --> 00:03:47,636
+menú, cotizar menaje, empaques y transporte, y reunir la evidencia de
+
+48
+00:03:47,636 --> 00:03:52,680
+experiencia y permisos. Asigno la revisión a coordinación comercial y anoto
+
+49
+00:03:52,680 --> 00:03:57,723
+que debemos confirmar el cierre en SICOP. Todavía no hemos presentado
+
+50
+00:03:57,723 --> 00:03:58,640
+ninguna oferta.
+
+51
+00:03:59,150 --> 00:04:03,331
+Este otro concurso pide reparar una excavadora. Está fuera de nuestro
+
+52
+00:04:03,331 --> 00:04:07,511
+giro, así que lo descarto y explico el motivo. Conservar esa
+
+53
+00:04:07,511 --> 00:04:11,692
+decisión evita que el equipo vuelva a revisar un caso que
+
+54
+00:04:11,692 --> 00:04:12,452
+no corresponde.
+
+55
+00:04:12,990 --> 00:04:17,313
+Vuelvo al radar y filtro por seguimiento. Aquí queda el caso
+
+56
+00:04:17,313 --> 00:04:21,636
+que decidimos trabajar. Ya pasamos de una lista general a una
+
+57
+00:04:21,636 --> 00:04:25,958
+oportunidad concreta, con una revisión y un próximo paso definido para
+
+58
+00:04:25,958 --> 00:04:26,744
+nuestro equipo.
+
+59
+00:04:27,270 --> 00:04:31,296
+Cierro la sesión y vuelvo a entrar. La decisión y la
+
+60
+00:04:31,296 --> 00:04:35,322
+nota siguen guardadas. Puedo retomar el trabajo sin reconstruir lo que
+
+61
+00:04:35,322 --> 00:04:37,519
+leí ni depender de apuntes dispersos.
+
+62
+00:04:38,030 --> 00:04:43,428
+Terminamos con una oportunidad real, comentarios y tareas pendientes. La empresa
+
+63
+00:04:43,428 --> 00:04:48,825
+y sus decisiones son ficticias. SICOP aportó los concursos y el
+
+64
+00:04:48,825 --> 00:04:54,223
+PDF. Antes de participar, completaríamos la revisión documental por los canales
+
+65
+00:04:54,223 --> 00:04:54,713
+oficiales.
