@@ -1,0 +1,74 @@
+# Ficha provisional para el portal de proyectos.
+# Pendiente: contrastar campos y tipos con la plantilla oficial de la sección 7.
+# Las rutas son relativas a la raíz del repositorio. No hay URL pública inventada.
+nombre: NexoLicitCR
+version: "0.9.0"
+estado: entrega_academica
+ficha_provisional: true
+categoria: Bases de Datos Avanzadas
+resumen: >-
+  Aplicación para PYMES de Costa Rica que relaciona su perfil y catálogo con
+  concursos SICOP, explica coincidencias, conserva evidencia documental y
+  organiza decisiones de seguimiento.
+problema: >-
+  La revisión manual de publicaciones, fechas y anexos dificulta identificar
+  oportunidades relevantes y conservar el contexto de decisiones anteriores.
+usuarios:
+  - Responsable comercial o propietario de una PYME.
+  - Administrador de la instalación.
+alcance: >-
+  Una empresa, una base MongoDB exclusiva y un único administrador por
+  instalación. La afinidad orienta la revisión; no determina elegibilidad.
+equipo:
+  - Esteban E Sanchez S
+  - Jose Guadamuz
+  - Akion Cheng
+  - Adriana Morera
+repositorio: https://github.com/EstebanS3/NexoLicitCR
+licencia: MIT
+tecnologias:
+  - Python 3.12 o 3.13
+  - FastAPI
+  - Jinja2
+  - MongoDB y GridFS
+  - Redis opcional
+  - Tesseract OCR y Poppler
+  - Docker Compose opcional
+capacidades:
+  - Registro inicial, sesiones y perfil empresarial confirmado.
+  - Catálogo con control de revisión y radar con razones de afinidad.
+  - Consulta SICOP acotada, versiones y trabajos durables recuperables.
+  - Originales GridFS y extracción digital u OCR por página.
+  - Seguimiento y notas independientes del recálculo de afinidad.
+documentacion:
+  readme: README.md
+  arquitectura: docs/architecture.md
+  instalacion: docs/guia/03-instalacion-operacion-y-validacion.md
+  variables: .env.example
+  changelog: CHANGELOG.md
+  entrega: docs/entrega/README.md
+  roadmap: docs/guia/04-evolucion-y-evaluacion.md
+  licencia: LICENSE
+demostracion:
+  datos: sinteticos_aislados
+  preparacion: scripts/prepare_demo.py
+  guion: docs/entrega/demo/GUION.md
+  video: null
+  video_disponibilidad: solo_local
+  subtitulos: docs/entrega/demo/NexoLicitCR_demo.srt
+  duracion: "04:44"
+  url_publica: null
+presentacion:
+  estado: borrador
+  editable: docs/entrega/presentacion/NexoLicitCR_presentacion_final.pptx
+  pdf: docs/entrega/presentacion/NexoLicitCR_presentacion_final.pdf
+capturas:
+  - docs/assets/demo/01-inicio.png
+  - docs/assets/demo/04-radar.png
+  - docs/assets/demo/06-documento.png
+  - docs/assets/demo/07-seguimiento.png
+limitaciones:
+  - La ficha espera validación contra el esquema oficial de la sección 7.
+  - La demostración sintética no constituye una consulta SICOP en vivo.
+  - Los anexos pueden quedar parciales por disponibilidad, formato o límites de extracción.
+  - El histórico corresponde a ofertas presentadas; comparables adjudicados pendientes.

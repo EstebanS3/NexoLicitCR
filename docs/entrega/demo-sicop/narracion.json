@@ -1,0 +1,97 @@
+[
+  {
+    "id": "01-cuenta",
+    "title": "Soy el cliente",
+    "text": "Hola, soy la encargada comercial de Mesa Norte Catering, una empresa ficticia. Voy a buscar una oportunidad real en SICOP. Creo mi cuenta y entro a un espacio nuevo, sin concursos precargados."
+  },
+  {
+    "id": "02-empresa",
+    "title": "Mi empresa",
+    "text": "Nuestra empresa se llama Mesa Norte Catering. Atendemos talleres y eventos en la región Huetar Norte. Voy a configurar el radar pensando en lo que realmente podemos ofrecer dentro de este escenario."
+  },
+  {
+    "id": "03-especialidad",
+    "title": "Lo que ofrecemos",
+    "text": "Elijo alimentación y la especialidad de preparación de alimentos y catering. Así el sistema propone términos concretos para buscar coincidencias. No necesito adivinar códigos de contratación para comenzar."
+  },
+  {
+    "id": "04-perfil",
+    "title": "Mi alcance comercial",
+    "text": "Reviso el perfil antes de confirmarlo. Incluyo refrigerios, almuerzos y opciones vegetarianas, con menaje y transporte. Registro nuestra cobertura en Huetar Norte y selecciono concursos de servicios. Esa cobertura es una referencia: tendré que comprobar el lugar de cada evento."
+  },
+  {
+    "id": "05-catalogo",
+    "title": "Un servicio concreto",
+    "text": "Ahora agrego un servicio a mi catálogo: catering para talleres y capacitaciones. Describo el menú y la logística, y añado palabras clave. Quiero que las coincidencias reflejen nuestra oferta comercial, sin confundir una descripción de ejemplo con experiencia ya acreditada."
+  },
+  {
+    "id": "06-consulta",
+    "title": "Consultar SICOP",
+    "text": "Ya puedo buscar. Elijo diez concursos recientes de servicios. Primero consultaré sus datos y condiciones; después revisaré anexos. Pulso el botón y la consulta entra en la cola real. Mientras SICOP responde, el sistema conserva el avance."
+  },
+  {
+    "id": "07-espera-sicop",
+    "title": "SICOP está trabajando",
+    "text": ""
+  },
+  {
+    "id": "08-ampliar",
+    "title": "Ampliar mi búsqueda",
+    "text": "En los diez concursos más recientes no aparece alimentación. No significa que no existan oportunidades. Amplío la consulta a cincuenta y activo la revisión de anexos. Los resultados dependen del alcance que elija."
+  },
+  {
+    "id": "08-espera-ampliada",
+    "title": "Buscando con más alcance",
+    "text": ""
+  },
+  {
+    "id": "08-detener",
+    "title": "Conservar lo encontrado",
+    "text": "Ya tengo el caso que quiero revisar. Solicito detener lo pendiente y paso a los resultados recuperados. La cancelación conserva los concursos y documentos que ya se guardaron."
+  },
+  {
+    "id": "08-resultados",
+    "title": "Encontré una oportunidad",
+    "text": "En la consulta ampliada aparece un servicio de alimentación para un taller en Huetar Norte. La afinidad me ayuda a priorizar la lectura; todavía tengo que revisar condiciones y requisitos."
+  },
+  {
+    "id": "09-expediente",
+    "title": "Leer antes de decidir",
+    "text": "Abro el expediente real. El cierre informado es el veintiséis de octubre a las diez de la mañana. Leo las líneas y las condiciones: piden refrigerio, almuerzo, opción vegetariana, menaje y transporte. La cantidad definitiva se avisa cinco días naturales antes. Para la admisibilidad, solicitan experiencia en tres eventos de más de treinta personas, además de permisos y certificados vigentes."
+  },
+  {
+    "id": "10-comentario",
+    "title": "Mi primera nota",
+    "text": "Esto sí parece cercano a nuestro giro. Lo marco como relevante y dejo una nota privada: validar el menú, la logística y el aviso previo. Me interesa conservar el razonamiento, no solamente marcar una casilla. Guardar esta nota no envía un mensaje a la institución."
+  },
+  {
+    "id": "13-documento",
+    "title": "Del anexo a la revisión",
+    "text": "La consulta encontró archivos no compatibles en otros concursos. Para este caso recuperamos un PDF de nueve páginas. Aquí aparecen una fecha potencial, cinco de noviembre, y la ubicación en Javillos de Florencia. Cotejaría la documentación vigente en SICOP."
+  },
+  {
+    "id": "14-seguimiento",
+    "title": "Un próximo paso claro",
+    "text": "Decido darle seguimiento. Actualizo la nota con tareas concretas: preparar el menú, cotizar menaje, empaques y transporte, y reunir la evidencia de experiencia y permisos. Asigno la revisión a coordinación comercial y anoto que debemos confirmar el cierre en SICOP. Todavía no hemos presentado ninguna oferta."
+  },
+  {
+    "id": "15-descartar",
+    "title": "También sé decir que no",
+    "text": "Este otro concurso pide reparar una excavadora. Está fuera de nuestro giro, así que lo descarto y explico el motivo. Conservar esa decisión evita que el equipo vuelva a revisar un caso que no corresponde."
+  },
+  {
+    "id": "16-mi-cartera",
+    "title": "Mi cartera de seguimiento",
+    "text": "Vuelvo al radar y filtro por seguimiento. Aquí queda el caso que decidimos trabajar. Ya pasamos de una lista general a una oportunidad concreta, con una revisión y un próximo paso definido para nuestro equipo."
+  },
+  {
+    "id": "17-regresar",
+    "title": "La decisión se conserva",
+    "text": "Cierro la sesión y vuelvo a entrar. La decisión y la nota siguen guardadas. Puedo retomar el trabajo sin reconstruir lo que leí ni depender de apuntes dispersos."
+  },
+  {
+    "id": "18-resumen",
+    "title": "Una jornada de cliente",
+    "text": "Terminamos con una oportunidad real, comentarios y tareas pendientes. La empresa y sus decisiones son ficticias. SICOP aportó los concursos y el PDF. Antes de participar, completaríamos la revisión documental por los canales oficiales."
+  }
+]

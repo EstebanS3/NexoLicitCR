@@ -57,6 +57,8 @@ coverage.xml
 /artifacts/
 /playwright-report/
 /test-results/
+# Videos de entrega: conservar únicamente las copias locales.
+/docs/entrega/**/*.mp4
 *.log
 *.pid
 *.part
