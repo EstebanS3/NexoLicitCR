@@ -4,7 +4,7 @@ Este archivo registra cambios verificables del repositorio y conserva los nombre
 
 ## [Sin publicar]
 
-- Entrega publicable sin MP4: ambos videos y el tag original que contiene la primera grabación se conservan en local. La rama del PR parte de `dev` y no hereda los commits locales con videos.
+- Incorporación de los dos MP4 revisados, con enlaces desde el README y las guías de entrega, ficha provisional del portal y controles por SHA-256. La excepción de Git se limita a estos dos archivos; las grabaciones intermedias permanecen privadas.
 
 - Segunda demo de cliente con empresa ficticia, consultas reales de SICOP, comentarios privados y seguimiento; esperas aceleradas con música original.
 - Corrección de la columna de evidencia del expediente: textos largos con espacios no separables ya no estrechan las condiciones hasta volverlas ilegibles. Verificada a 1440, 1024 y 390 píxeles.
@@ -13,7 +13,7 @@ Este archivo registra cambios verificables del repositorio y conserva los nombre
 
 ## [0.9.0] — 2026-10-21
 
-Versión de entrega académica. El tag local `v0.9.0`, que no se publica porque contiene un MP4, identifica el commit `86510cc` de los materiales iniciales validados. La segunda demo de SICOP, su revisión de privacidad y la integración posterior de `dev` quedan fuera de ese tag y se registran en esta rama; no se ha creado una release de GitHub.
+Versión de entrega académica. El tag local `v0.9.0` identifica el commit `86510cc` de los materiales iniciales validados. La segunda demo de SICOP, su revisión de privacidad y la integración posterior de `dev` quedan fuera de ese tag y se registran en esta rama; no se ha creado una release de GitHub.
 
 ### Agregado
 

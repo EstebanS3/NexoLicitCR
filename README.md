@@ -275,9 +275,9 @@ Capturas del recorrido real de **Brújula TI**, con base y usuario exclusivos de
 
 [Inicio](docs/assets/demo/01-inicio.png) · [Perfil](docs/assets/demo/02-perfil.png) · [Catálogo](docs/assets/demo/03-catalogo.png) · [Detalle](docs/assets/demo/05-detalle.png) · [Seguimiento](docs/assets/demo/07-seguimiento.png) · [Actividad](docs/assets/demo/08-actividad.png).
 
-**Video de 4:44 minutos disponible únicamente en la entrega local.** · [Guion](docs/entrega/demo/GUION.md) · [Subtítulos](docs/entrega/demo/NexoLicitCR_demo.srt) · [Presentación editable](docs/entrega/presentacion/NexoLicitCR_presentacion_final.pptx) · [Presentación PDF](docs/entrega/presentacion/NexoLicitCR_presentacion_final.pdf).
+**[Video MP4 de 4:44 minutos](docs/entrega/demo/NexoLicitCR_demo.mp4)** · [Guion](docs/entrega/demo/GUION.md) · [Subtítulos](docs/entrega/demo/NexoLicitCR_demo.srt) · [Presentación editable](docs/entrega/presentacion/NexoLicitCR_presentacion_final.pptx) · [Presentación PDF](docs/entrega/presentacion/NexoLicitCR_presentacion_final.pdf).
 
-**Demo de cliente con SICOP real, de 4:55 minutos, disponible únicamente en local**: Mesa Norte Catering, empresa ficticia, consulta pública real, comentarios y seguimiento. Incluye esperas aceleradas y música original. [Recorrido y procedencia](docs/entrega/demo-sicop/README.md). Los dos MP4 están excluidos de Git; el repositorio conserva guiones, subtítulos y evidencia de revisión.
+**[Demo de cliente con SICOP real · MP4 de 4:55 minutos](docs/entrega/demo-sicop/NexoLicitCR_cliente_SICOP.mp4)**: Mesa Norte Catering, empresa ficticia, consulta pública real, comentarios y seguimiento. Incluye esperas aceleradas y música original. [Recorrido y procedencia](docs/entrega/demo-sicop/README.md). Ambos videos incluyen subtítulos en español. La [revisión de privacidad](docs/entrega/REVISION_PRIVACIDAD_VIDEOS.md) documenta el alcance de los controles y los hashes de los archivos.
 
 La revisión móvil histórica se conserva en [catálogo móvil](docs/validacion/catalogo-movil.png), [acceso inválido](docs/validacion/acceso-invalido-movil.png) y [memoria del 18 de octubre](docs/validacion/README.md). No constituye una certificación de accesibilidad.
 

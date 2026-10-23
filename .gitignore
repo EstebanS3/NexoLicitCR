@@ -57,8 +57,10 @@ coverage.xml
 /artifacts/
 /playwright-report/
 /test-results/
-# Videos de entrega: conservar únicamente las copias locales.
+# Videos: publicar únicamente los dos archivos revisados de la entrega.
 /docs/entrega/**/*.mp4
+!/docs/entrega/demo/NexoLicitCR_demo.mp4
+!/docs/entrega/demo-sicop/NexoLicitCR_cliente_SICOP.mp4
 *.log
 *.pid
 *.part

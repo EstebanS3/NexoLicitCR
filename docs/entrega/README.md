@@ -1,6 +1,6 @@
 # Materiales de entrega · NexoLicitCR v0.9.0
 
-Esta entrega reúne documentación, demostración y un borrador editable para la exposición final. La versión acordada es **v0.9.0**. Ambos videos se conservan únicamente en local; los MP4 y los commits que los contenían no forman parte de la rama publicable. El tag original `v0.9.0` permanece local porque contiene el primer video. La [validación de entrega](VALIDACION.md) describe los comandos ejecutados, el entorno y los límites de la evidencia.
+Esta entrega reúne documentación, demostración y un borrador editable para la exposición final. La versión acordada es **v0.9.0**. Los dos videos revisados se incluyen en esta rama y están enlazados en la tabla. El tag original `v0.9.0` permanece local y corresponde a la entrega inicial; la demo adicional de SICOP es posterior. La [validación de entrega](VALIDACION.md) describe los comandos ejecutados, el entorno y los límites de la evidencia.
 
 | Material | Archivo y finalidad |
 |---|---|
@@ -8,9 +8,9 @@ Esta entrega reúne documentación, demostración y un borrador editable para la
 | Cambios | [CHANGELOG](../../CHANGELOG.md): versión de entrega y antecedentes que existen en Git. |
 | Ficha del portal | [portal.yml](../../portal.yml): ficha provisional; verificar el esquema oficial de la sección 7 antes de cargarla al portal. |
 | Guion de video | [GUION.md](demo/GUION.md): escenas, narración y alcance de la demostración. |
-| Video de 3–5 minutos | `NexoLicitCR_demo.mp4`: entrega local, excluido de Git. |
+| Video de 3–5 minutos | [NexoLicitCR_demo.mp4](demo/NexoLicitCR_demo.mp4): explicación de 4:44. |
 | Subtítulos | [NexoLicitCR_demo.srt](demo/NexoLicitCR_demo.srt), también incluidos en el video. |
-| Demo adicional con SICOP real | [Mesa Norte Catering](demo-sicop/README.md): cuenta propia, consultas reales y decisiones de cliente. Material posterior al tag v0.9.0. |
+| Demo adicional con SICOP real | [Video MP4 de 4:55](demo-sicop/NexoLicitCR_cliente_SICOP.mp4) · [Recorrido de Mesa Norte Catering](demo-sicop/README.md): cuenta propia, consultas reales y decisiones de cliente. Material posterior al tag v0.9.0. |
 | Revisión de privacidad | [Informe de ambos videos](REVISION_PRIVACIDAD_VIDEOS.md): imágenes, audio, subtítulos, metadatos y hashes revisados. |
 | Presentación editable | [NexoLicitCR_presentacion_final.pptx](presentacion/NexoLicitCR_presentacion_final.pptx): borrador para adaptar a la exposición. |
 | Presentación PDF | [NexoLicitCR_presentacion_final.pdf](presentacion/NexoLicitCR_presentacion_final.pdf). |

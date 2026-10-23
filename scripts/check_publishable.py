@@ -23,8 +23,11 @@ patterns = [
     re.compile(r"[?&](?:X-Amz-Signature|X-Goog-Signature|access_token|api_key)=[^\s&\"']+", re.I),
 ]
 atlas_hosts = re.compile(r"\b(?:[a-z0-9-]+\.)+mongodb\.net\b", re.I)
-# Exact reviewed image bytes; changed or additional binaries require manual review.
+# Exact reviewed media bytes; changed or additional binaries require manual review.
 reviewed_assets = {
+    # Both final MP4 files revalidated on 2026-10-22; see the privacy review report.
+    "docs/entrega/demo/NexoLicitCR_demo.mp4": "e25cdea088d09de7fa1dadffbc603a6db45b6229bbc1a327a703f63fa8907bce",
+    "docs/entrega/demo-sicop/NexoLicitCR_cliente_SICOP.mp4": "895c7942ea520be9fe6bd2be8c23eaa569ea2b4127f4a522129d55b9799c4483",
     "docs/validacion/radar-escritorio.png": "6d17941c929139dd360b36a41bdb17f0e296cdbe2976cc601b04790c9cfce270",
     "docs/validacion/catalogo-movil.png": "69fcc86ce15f3b6b3a4b74f119361aec02080811c8355405b801c44b62016b11",
     "docs/validacion/acceso-invalido-movil.png": "644df89489b9933ad5f76a4134e458cbf06e40e765d2e84a9540d8450f500302",

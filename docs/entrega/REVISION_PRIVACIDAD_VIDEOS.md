@@ -1,15 +1,17 @@
 # Revisión de privacidad de los videos
 
-Revisión realizada el 21 de octubre de 2026 sobre los dos MP4 finales.
+Revisión inicial realizada el 21 de octubre de 2026 sobre los dos MP4 finales. Revalidación previa a publicación: **22 de octubre de 2026**.
 
-**Resultado: no se detectaron datos personales del propietario ni información que identifique su computadora.** No se encontraron motivos de privacidad para recortar, censurar o volver a grabar estos archivos. Los videos permanecen sin modificaciones y se conservan únicamente en local; no se incluyen en la rama publicable.
+**Resultado: no se detectaron datos personales del propietario ni información que identifique su computadora.** No se encontraron motivos de privacidad para recortar, censurar o volver a grabar estos archivos. Los videos permanecen sin modificaciones y se incorporan al repositorio con los hashes revisados.
 
 | Archivo | Muestreo a 2 fotogramas/s | Fotogramas adicionales por cambios de imagen | Resultado |
 | --- | ---: | ---: | --- |
-| `demo/NexoLicitCR_demo.mp4` | 569 | 63 | Sin hallazgos de privacidad |
-| `demo-sicop/NexoLicitCR_cliente_SICOP.mp4` | 590 | 80 | Sin hallazgos de privacidad |
+| [NexoLicitCR_demo.mp4](demo/NexoLicitCR_demo.mp4) | 569 | 63 | Sin hallazgos de privacidad |
+| [NexoLicitCR_cliente_SICOP.mp4](demo-sicop/NexoLicitCR_cliente_SICOP.mp4) | 590 | 80 | Sin hallazgos de privacidad |
 
-Las copias de la carpeta de entrega `Videos`, incluida la denominada `NexoLicitCR_demo_Explicacion.mp4`, coinciden byte por byte con los respectivos archivos locales revisados. Esas copias MP4 están excluidas de Git.
+Las copias de la carpeta local de entrega `Videos`, incluida la denominada `NexoLicitCR_demo_Explicacion.mp4`, coinciden byte por byte con los respectivos archivos revisados. El repositorio incluye una sola copia de cada MP4, en las rutas enlazadas en la tabla.
+
+La revalidación del 22 de octubre confirmó los mismos SHA-256, por lo que la evidencia de las 1.302 imágenes y sus OCR sigue correspondiendo exactamente a estos videos. Se extrajeron nuevamente audio, subtítulos y metadatos desde los MP4 actuales, se repitieron sus contrastes y se volvieron a examinar hojas de contacto, transiciones y accesos. Los resultados permanecen sin coincidencias sensibles; no se contabiliza ese trabajo como 1.302 imágenes nuevas.
 
 ## Comprobaciones realizadas
 

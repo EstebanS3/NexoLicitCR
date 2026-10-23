@@ -6,7 +6,7 @@ Presentación de **12 diapositivas**, en español, para la entrega **v0.9.0** de
 - [Copia PDF](NexoLicitCR_presentacion_final.pdf): versión para lectura y proyección.
 - [Notas para exponer](notas_exposicion.md): recorrido, tiempos sugeridos, límites y fuentes de cada diapositiva.
 - [Fuente de la presentación](fuente_presentacion.mjs): composición reproducible con `@oai/artifact-tool`.
-- Video de demostración: disponible únicamente en la carpeta local de entrega, no incluido en Git.
+- [Video de demostración de 4:44](../demo/NexoLicitCR_demo.mp4) · [Demo de cliente con SICOP de 4:55](../demo-sicop/NexoLicitCR_cliente_SICOP.mp4).
 
 El hilo conductor es **Brújula TI**, una empresa ficticia. Las capturas muestran la aplicación con datos preparados para la demostración. Los materiales distinguen los resultados actuales de lógica y HTTP de las comprobaciones históricas de integración. El roadmap contiene propuestas posteriores a la entrega.
 
@@ -14,7 +14,7 @@ El hilo conductor es **Brújula TI**, una empresa ficticia. Las capturas muestra
 
 Abrir el PPTX en una aplicación compatible y activar la vista del presentador para leer las notas. La narración sugerida ocupa aproximadamente 10-12 minutos, más el video de 3-5 minutos. Ajustar esos tiempos al espacio asignado al grupo.
 
-El enlace del video dentro de la presentación usa una ruta relativa y solo funciona con la copia local del MP4; clonar el repositorio no descarga el video. Conservar las carpetas `presentacion/` y `demo/` dentro de `docs/entrega/`. Si el visor bloquea enlaces a archivos locales, abrir el MP4 directamente.
+El enlace del video dentro de la presentación usa una ruta relativa al MP4 incluido en el repositorio. Conservar las carpetas `presentacion/` y `demo/` dentro de `docs/entrega/`. Si el visor bloquea enlaces a archivos locales, abrir el MP4 directamente.
 
 ## Regeneración
 
