@@ -80,6 +80,6 @@ Los scripts nunca abren el perfil personal de un navegador. Los intermedios qued
 
 ## Archivos entregados
 
-- Video MP4: `NexoLicitCR_demo.mp4`, entrega local; no incluido en Git.
+- [Video MP4 de 4:44](NexoLicitCR_demo.mp4).
 - [Subtítulos SRT](NexoLicitCR_demo.srt).
 - [Ficha técnica del video](video.json).

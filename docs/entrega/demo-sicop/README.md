@@ -2,7 +2,7 @@
 
 Segunda demostración de NexoLicitCR, grabada el **21 de octubre de 2026**. La empresa, su cuenta y sus comentarios son ficticios; las consultas, expedientes y anexos provienen de SICOP. Se usa una base exclusiva y un Chromium de Playwright con perfil temporal vacío, separado de los navegadores personales.
 
-- Video MP4 de 4:55: `NexoLicitCR_cliente_SICOP.mp4`, conservado únicamente en local y excluido de Git.
+- [Video MP4 de 4:55](NexoLicitCR_cliente_SICOP.mp4).
 - [Subtítulos](NexoLicitCR_cliente_SICOP.srt), también incluidos como pista en el video.
 - [Narración editable](narracion.json) y [ficha técnica](video.json).
 
