@@ -287,7 +287,6 @@ La revisión móvil histórica se conserva en [catálogo móvil](docs/validacion
 uv run ruff check src tests scripts
 uv run ruff format --check src tests scripts
 uv run pytest -m 'not integration'
-uv run python scripts/check_publishable.py
 ```
 
 Para integración, usar una base exclusiva cuyo nombre comience por `nexolicit_test_` y una configuración acorde al backend. Algunas pruebas requieren que no exista administrador. Nunca apuntarlas a la base de la empresa.

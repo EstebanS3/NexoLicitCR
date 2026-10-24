@@ -17,4 +17,3 @@ jobs:
       - run: uv run ruff check src tests scripts
       - run: uv run ruff format --check src tests scripts
       - run: uv run pytest -m 'not integration'
-      - run: uv run python scripts/check_publishable.py

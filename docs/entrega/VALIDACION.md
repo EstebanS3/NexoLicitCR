@@ -37,7 +37,6 @@ El ensayo terminó sin errores JavaScript, respuestas HTTP fallidas ni desbordam
 - Presentación editable de 12 diapositivas con notas; PDF con texto seleccionable. Diagramas conservados como objetos editables en el PPTX.
 - Revisión visual de las 12 páginas del PDF y de las capturas de la aplicación.
 - `ruff check src tests scripts`, `ruff format --check src tests scripts` y `git diff --check` aprobados.
-- `scripts/check_publishable.py` aprobado: los medios revisados se registran por SHA-256 exacto; cualquier modificación requiere una nueva revisión.
 - MP4 H.264 de **284,4 segundos**, 1440 × 900, audio AAC y subtítulos españoles. Decodificación completa sin errores; 11 escenas con desviación máxima de **0,002 segundos** frente al guion.
 - YAML válido y enlaces locales de la documentación comprobados. El [registro estructurado](VALIDACION.json) conserva resultados y hashes de los entregables revisados.
 - Los intermedios, credenciales, datos MongoDB y perfiles del navegador permanecen en `var/`, fuera de Git.

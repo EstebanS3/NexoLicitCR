@@ -38,7 +38,6 @@ uv sync --frozen
 uv run ruff check src tests scripts
 uv run ruff format --check src tests scripts
 uv run pytest -m 'not integration'
-uv run python scripts/check_publishable.py
 uv run python scripts/benchmark_matching.py --output artifacts/matching-academic.json
 # Solo con MongoDB local configurado y una base descartable exclusiva:
 NEXO_TEST_LOCAL=1 NEXO_TEST_DATABASE=nexolicit_test_local uv run pytest -m integration

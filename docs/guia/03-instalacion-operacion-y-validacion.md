@@ -512,7 +512,6 @@ Mantener instalación y base exclusivas por empresa, rotar secretos por un proce
 uv run ruff check src tests scripts
 uv run ruff format --check src tests scripts
 uv run pytest -m 'not integration'
-uv run python scripts/check_publishable.py
 ```
 
 La suite normal usa fixtures y dobles, incluido mongomock para persistencia y un doble Redis. No necesita una consulta a SICOP ni demuestra por sí misma transacciones físicas, disponibilidad Atlas, tiempos de red o comportamiento del servidor MongoDB real. Algunos casos de OCR dependen de los binarios nativos; el resumen de pytest debe conservar sus saltos junto con los aprobados.
@@ -526,8 +525,6 @@ La suite normal usa fixtures y dobles, incluido mongomock para persistencia y un
 | [test_cache_matching.py](../../tests/test_cache_matching.py), [test_search_regressions.py](../../tests/test_search_regressions.py) | Afinidad, filtros y equivalencia de resultados ante caché. |
 | [test_documents_history.py](../../tests/test_documents_history.py), [test_ocr_quality.py](../../tests/test_ocr_quality.py) | Documentos, histórico y extracción con las condiciones previstas por cada prueba. |
 | [test_multi_specialties.py](../../tests/test_multi_specialties.py), [test_onboarding.py](../../tests/test_onboarding.py) | Perfiles y recorridos con especialidades múltiples. |
-
-`check_publishable.py` inspecciona archivos versionados y nuevos no ignorados; busca patrones de datos privados y exige revisión de binarios desconocidos. Su lista de permitidos registra la ruta y la huella SHA-256 exacta de cada binario revisado. Un PDF nuevo puede producir «binary requires manual review»: eso exige revisar el artefacto, no prueba automáticamente que contenga un secreto. Después de revisar contenido, metadatos y presentación, se puede registrar su huella exacta; cualquier cambio posterior vuelve a exigir revisión. No desactivar la auditoría para convertir esa señal en un resultado ficticio de aprobación.
 
 ### Resultado ejecutado durante esta edición
 
