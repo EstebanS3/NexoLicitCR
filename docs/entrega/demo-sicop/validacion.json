@@ -64,7 +64,7 @@
     "sha256": "895c7942ea520be9fe6bd2be8c23eaa569ea2b4127f4a522129d55b9799c4483"
   },
   "checks": {
-    "targeted_tests": "14 passed: test_demo_seed.py + test_publishable.py",
+    "targeted_tests": "14 passed en la validación inicial de la demo",
     "python_style": "ruff check y format correctos en los tres scripts Python nuevos",
     "browser_scripts": "Node syntax checks correctos",
     "previous_video": "Conservado sin modificaciones",

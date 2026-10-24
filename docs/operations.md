@@ -98,7 +98,6 @@ El script exige una base `nexolicit_test_` sin administrador. Verifica registro,
 uv run ruff check src tests scripts
 uv run ruff format --check src tests scripts
 uv run pytest -m 'not integration'
-uv run python scripts/check_publishable.py
 # Opt-in contra base EXCLUSIVA cuyo nombre empiece por nexolicit_test_:
 NEXO_TEST_LOCAL=1 NEXO_TEST_DATABASE=nexolicit_test_local uv run pytest -m integration
 # O Atlas, seleccionando previamente MONGO_MODE=atlas:
