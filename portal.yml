@@ -53,11 +53,17 @@ demostracion:
   datos: sinteticos_aislados
   preparacion: scripts/prepare_demo.py
   guion: docs/entrega/demo/GUION.md
-  video: null
-  video_disponibilidad: solo_local
+  video: docs/entrega/demo/NexoLicitCR_demo.mp4
+  video_disponibilidad: repositorio
   subtitulos: docs/entrega/demo/NexoLicitCR_demo.srt
   duracion: "04:44"
   url_publica: null
+demostracion_sicop:
+  datos: consulta_real_empresa_ficticia
+  recorrido: docs/entrega/demo-sicop/README.md
+  video: docs/entrega/demo-sicop/NexoLicitCR_cliente_SICOP.mp4
+  subtitulos: docs/entrega/demo-sicop/NexoLicitCR_cliente_SICOP.srt
+  duracion: "04:55"
 presentacion:
   estado: borrador
   editable: docs/entrega/presentacion/NexoLicitCR_presentacion_final.pptx
