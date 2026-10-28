@@ -244,6 +244,67 @@ La tabla incorpora `offer_queries`, usada por el código del histórico, aunque 
 
 Los índices únicos protegen invariantes además de facilitar búsquedas. Los índices secundarios consumen espacio y trabajo de escritura; su utilidad se evalúa con las consultas efectivas y sus planes, no por la cantidad de índices creados. `nexolicit init-db` crea los índices y contempla la retirada del índice legado de ofertas que no incluía la partida.
 
+### 5.4 Diagrama de la base de datos
+
+[Diagrama vectorial SVG](diagramas/modelo-datos.svg) · [Documento completo en PDF](entrega/DOCUMENTACION_PROYECTO_Y_AGENTES.pdf).
+
+El diagrama muestra referencias lógicas entre colecciones MongoDB. Las relaciones no son claves foráneas impuestas por el motor. `catalog` contiene el perfil y los ítems embebidos; no existe una colección `companies` separada. Los vínculos con concursos usan `tender_key`, salvo `tender_versions`, que utiliza `key`.
+
+```mermaid
+erDiagram
+    users ||--o{ sessions : user_id
+    catalog ||--o{ matches : company
+    catalog ||--o{ decisions : company
+    tenders ||--o{ tender_versions : key
+    tenders ||--o{ matches : tender_key
+    tenders ||--o{ decisions : tender_key
+    tenders ||--o{ documents : tender_key
+    tenders ||--o{ offers : tender_key
+    tenders ||--o{ offer_queries : tender_key
+    documents ||--o{ extracted_pages : document_id
+    documents }o--o| fs_files : gridfs_id
+    fs_files ||--o{ fs_chunks : files_id
+    jobs ||--o| sync_runs : job_id
+    catalog {
+        string _id "company"
+        int revision
+        object profile "embebido"
+        array items "embebidos"
+    }
+    tenders {
+        string _id "cartelNo:cartelSeq"
+        string hash
+        array lines "embebidas"
+    }
+    documents {
+        string _id
+        string tender_key
+        string sha256
+        ObjectId gridfs_id "opcional hasta publicar original"
+    }
+    matches {
+        string company
+        string tender_key
+        int catalog_revision
+        string tender_hash
+        string rules_version
+        int document_generation
+    }
+    login_tokens {
+        date expires_at "TTL; acceso inicial"
+    }
+    login_limits {
+        date expires_at "TTL; control de intentos"
+    }
+    metadata {
+        string _id "generacion y control operativo"
+    }
+```
+
+**Lectura:** `||` indica uno; `o{`, cero o muchos; `o|`, cero o uno. `fs_files` y `fs_chunks` representan los nombres reales `fs.files` y `fs.chunks`. Un documento pendiente puede no tener original; un original puede ser reutilizado por varios documentos. Los huérfanos de GridFS se revisan con el diagnóstico documentado. El esquema expresa la relación prevista, no garantiza ausencia física de huérfanos.
+
+Las colecciones `login_tokens`, `login_limits` y `metadata` no requieren una relación de propiedad con cada concurso. Los trabajos conservan payload y checkpoints embebidos; `sync_runs` guarda su resumen terminal. Redis queda fuera de este diagrama porque su contenido es una caché derivada y opcional.
+
 ## 6. Flujos, consistencia y recuperación
 
 ### 6.1 Del perfil a la decisión
