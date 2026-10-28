@@ -1,0 +1,23 @@
+{
+  "kind": "historical_evidence_artifact",
+  "project": "NexoLicitCR",
+  "campaign": "Seguimiento 2",
+  "measurement_dates": ["2026-10-19", "2026-10-20"],
+  "timezone": "America/Costa_Rica",
+  "source_commit": "325ed05aac01ed3f59af116a9cc43ad6fcf120f5",
+  "source_sha256": "92b0856ee316ee6c9d815e1923c7e6d057464af6ce758ee38456e8650cd0a1f9",
+  "artifact": {
+    "path": "Informe_Seguimiento_2_NexoLicitCR.pdf",
+    "bytes": 1013989,
+    "sha256": "fab42e5b82acb51d1c9084aa941aba15d3b27a8bdd8c645c08ae0c1c890cfc2d",
+    "pages": 36,
+    "copied_without_modification": true
+  },
+  "verified_local_date": "2026-10-24",
+  "scope": "Informe histórico de pruebas y rendimiento; no es una ejecución nueva sobre la versión final.",
+  "limitations": [
+    "Datos sintéticos; SICOP se sustituyó mediante fixtures.",
+    "Las mediciones no acreditan disponibilidad actual de SICOP ni relevancia comercial del ranking.",
+    "El paquete reproducible completo y sus Markdown permanecen locales y no forman parte de esta incorporación."
+  ]
+}

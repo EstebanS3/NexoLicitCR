@@ -1,0 +1,189 @@
+{
+  "duration_seconds": 295.08,
+  "resolution": [
+    1600,
+    1000
+  ],
+  "recorded_at": "2026-10-21T18:18:03.563Z",
+  "sicop_live_query": true,
+  "company": "Mesa Norte Catering (ficticia)",
+  "source_procedure": "2026LD-000009-0033400001",
+  "source_id": "20261002698:00",
+  "narration": "Voz sintética local Paulina; interpretación de clienta ficticia",
+  "music": "Composición original sintetizada localmente, sin muestras de terceros",
+  "browser": "Chromium de Playwright con perfil temporal vacío",
+  "edits": "Tramos de la misma cuenta y base; esperas aceleradas con rótulo. Acciones a velocidad normal. Pausa de producción entre consulta inicial y ampliación.",
+  "production_cuts": [
+    "Las decisiones finales se repiten con la nota corregida: el PDF principal está listo; los archivos incompatibles pertenecen a otros concursos.",
+    "Se retienen registro, perfil y consulta inicial completa; se omite la espera de un selector que ya no estaba en los diez recientes.",
+    "Se retiene la ampliación real; se retoma el mismo trabajo después de un corte de conexión local. Se omite el intervalo de producción entre capturas."
+  ],
+  "main_query": {
+    "id": "fd264da2bc1a467a98dc6d728094d8b7",
+    "status": "succeeded",
+    "progress": 10,
+    "elapsed": 35.977
+  },
+  "document_query": {
+    "id": "fa4d6b23a5364fe1aeb38469005582a9",
+    "status": "canceled",
+    "progress": 16,
+    "elapsed": 5.55
+  },
+  "document_result": "Caso principal: PDF de 9 páginas listo. Otros concursos del lote: archivos no compatibles; consulta cancelada conservando resultados.",
+  "segments": [
+    {
+      "id": "01-cuenta",
+      "title": "Soy el cliente",
+      "start": 0.0,
+      "duration": 13.8,
+      "raw_duration": 13.779,
+      "speed": 1
+    },
+    {
+      "id": "02-empresa",
+      "title": "Mi empresa",
+      "start": 13.8,
+      "duration": 12.96,
+      "raw_duration": 12.955,
+      "speed": 1
+    },
+    {
+      "id": "03-especialidad",
+      "title": "Lo que ofrecemos",
+      "start": 26.76,
+      "duration": 14.16,
+      "raw_duration": 14.152,
+      "speed": 1
+    },
+    {
+      "id": "04-perfil",
+      "title": "Mi alcance comercial",
+      "start": 40.92,
+      "duration": 19.4,
+      "raw_duration": 19.395,
+      "speed": 1
+    },
+    {
+      "id": "05-catalogo",
+      "title": "Un servicio concreto",
+      "start": 60.32,
+      "duration": 18.64,
+      "raw_duration": 18.633,
+      "speed": 1
+    },
+    {
+      "id": "06-consulta",
+      "title": "Consultar SICOP",
+      "start": 78.96,
+      "duration": 17.52,
+      "raw_duration": 17.506,
+      "speed": 1
+    },
+    {
+      "id": "07-espera-sicop",
+      "title": "SICOP está trabajando",
+      "start": 96.48,
+      "duration": 8.0,
+      "raw_duration": 37.979,
+      "speed": 4.747
+    },
+    {
+      "id": "08-ampliar",
+      "title": "Ampliar mi búsqueda",
+      "start": 104.48,
+      "duration": 15.0,
+      "raw_duration": 14.965,
+      "speed": 1
+    },
+    {
+      "id": "08-espera-ampliada",
+      "title": "Buscando con más alcance",
+      "start": 119.48,
+      "duration": 8.0,
+      "raw_duration": 284.73,
+      "speed": 35.591
+    },
+    {
+      "id": "08-detener",
+      "title": "Conservar lo encontrado",
+      "start": 127.48,
+      "duration": 11.96,
+      "raw_duration": 11.946,
+      "speed": 1
+    },
+    {
+      "id": "08-resultados",
+      "title": "Encontré una oportunidad",
+      "start": 139.44,
+      "duration": 12.52,
+      "raw_duration": 12.515,
+      "speed": 1
+    },
+    {
+      "id": "09-expediente",
+      "title": "Leer antes de decidir",
+      "start": 151.96,
+      "duration": 27.56,
+      "raw_duration": 27.523,
+      "speed": 1
+    },
+    {
+      "id": "10-comentario",
+      "title": "Mi primera nota",
+      "start": 179.52,
+      "duration": 18.44,
+      "raw_duration": 18.421,
+      "speed": 1
+    },
+    {
+      "id": "13-documento",
+      "title": "Del anexo a la revisión",
+      "start": 197.96,
+      "duration": 19.44,
+      "raw_duration": 19.431,
+      "speed": 1
+    },
+    {
+      "id": "14-seguimiento",
+      "title": "Un próximo paso claro",
+      "start": 217.4,
+      "duration": 21.6,
+      "raw_duration": 21.59,
+      "speed": 1
+    },
+    {
+      "id": "15-descartar",
+      "title": "También sé decir que no",
+      "start": 239.0,
+      "duration": 13.84,
+      "raw_duration": 13.802,
+      "speed": 1
+    },
+    {
+      "id": "16-mi-cartera",
+      "title": "Mi cartera de seguimiento",
+      "start": 252.84,
+      "duration": 14.28,
+      "raw_duration": 14.256,
+      "speed": 1
+    },
+    {
+      "id": "17-regresar",
+      "title": "La decisión se conserva",
+      "start": 267.12,
+      "duration": 10.76,
+      "raw_duration": 10.749,
+      "speed": 1
+    },
+    {
+      "id": "18-resumen",
+      "title": "Una jornada de cliente",
+      "start": 277.88,
+      "duration": 17.2,
+      "raw_duration": 17.183,
+      "speed": 1
+    }
+  ],
+  "size_bytes": 15701732
+}

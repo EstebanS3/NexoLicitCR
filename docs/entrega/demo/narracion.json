@@ -1,0 +1,57 @@
+[
+  {
+    "id": "inicio",
+    "title": "Un escenario ficticio, una aplicación real",
+    "text": "Esta es Nexo Licit Costa Rica, una aplicación para ayudar a pequeñas empresas a revisar oportunidades de contratación pública. En esta demostración usaremos Brújula TI, una empresa ficticia de soporte y redes. Creamos una base independiente y una cuenta propia. Todos los concursos, instituciones y documentos que veremos son sintéticos; las interacciones se realizan en la aplicación real."
+  },
+  {
+    "id": "perfil",
+    "title": "El perfil de Brújula TI",
+    "text": "Al ingresar encontramos el espacio de la empresa. El perfil conserva el nombre comercial, las actividades y las especialidades que orientan la búsqueda. Cada instalación administra una empresa. La configuración se revisa antes de confirmarse y queda almacenada en Mongo DB. Así podemos volver al mismo contexto sin empezar de nuevo en cada sesión."
+  },
+  {
+    "id": "catalogo",
+    "title": "Un catálogo que la empresa puede ajustar",
+    "text": "El catálogo describe lo que Brújula TI ofrece: soporte técnico, mantenimiento y redes. Los términos y códigos permiten relacionar la oferta con la información de los concursos. El catálogo es editable y conserva su propia revisión. Aquí mostramos datos preparados para repetir el recorrido; no estamos afirmando que una empresa real haya validado estas coincidencias."
+  },
+  {
+    "id": "radar",
+    "title": "Coincidencias explicadas",
+    "text": "El radar reúne oportunidades y muestra una afinidad orientativa. Cada tarjeta conserva el título, la institución, el cierre y una explicación de por qué aparece. También informa cuándo se verificó el contenido. La puntuación ayuda a priorizar la revisión; no garantiza que la empresa cumpla todos los requisitos ni que vaya a ganar una contratación."
+  },
+  {
+    "id": "filtros",
+    "title": "Reducir la lista para revisar mejor",
+    "text": "Podemos buscar por título o institución y combinar filtros de estado, tipo de concurso y afinidad mínima. Aplicaremos una búsqueda de soporte para concentrarnos en ese servicio. Los resultados se calculan sobre el corpus guardado. En una instalación conectada, consultar novedades requiere una acción explícita; el radar no representa todo el contenido de SICOP."
+  },
+  {
+    "id": "detalle",
+    "title": "Del resultado al expediente",
+    "text": "Abrimos un concurso de ejemplo para revisar sus líneas, cantidades y condiciones. A la derecha aparecen las coincidencias que respaldan la afinidad. Esta vista conecta la recomendación con su evidencia y permite distinguir información disponible de información pendiente. En los datos reales, siempre corresponde revisar el expediente original y las condiciones antes de participar."
+  },
+  {
+    "id": "documento",
+    "title": "Documentos con procedencia",
+    "text": "Los documentos se almacenan en Grid FS y su texto se organiza por página. Podemos leer la evidencia o descargar el original. El archivo de esta demo es sintético. El sistema admite extracción de PDF y OCR cuando está configurado; si una página no puede leerse, muestra el estado parcial en lugar de dar el expediente por completo."
+  },
+  {
+    "id": "decision",
+    "title": "Guardar una decisión de seguimiento",
+    "text": "Ahora registramos una decisión real en nuestra base de demostración. Elegimos en seguimiento y añadimos una nota: revisar experiencia y preparar la propuesta técnica. Guardamos el formulario. Las decisiones permanecen separadas de los resultados calculados, para conservar el criterio de la empresa aunque cambie el perfil o se actualice el contenido del concurso."
+  },
+  {
+    "id": "seguimiento",
+    "title": "Comprobar que la decisión quedó guardada",
+    "text": "Volvemos al radar y seleccionamos la vista en seguimiento. La oportunidad aparece con el estado que acabamos de guardar. Este recorrido muestra lectura, filtrado y escritura con persistencia real en Mongo DB. Los datos se preparan mediante un script reproducible y se mantienen aislados de la base que utiliza el propietario del proyecto."
+  },
+  {
+    "id": "actividad",
+    "title": "Actividad y responsabilidades de los motores",
+    "text": "La pantalla de actividad permite revisar estados y resultados de trabajos. Aquí se presenta un registro sintético de la carga local, no una consulta ejecutada contra SICOP. En el sistema, Mongo DB conserva los trabajos durables, perfiles y concursos; Grid FS almacena archivos. Redis es una caché opcional: la aplicación conserva un camino de cálculo cuando la caché no está disponible."
+  },
+  {
+    "id": "cierre",
+    "title": "Alcance de la versión 0.9.0",
+    "text": "La versión cero punto nueve reúne perfil, catálogo, radar explicado, documentos y seguimiento. El repositorio incluye instalación, datos de prueba y evidencia técnica con sus límites. El roadmap propone evaluar relevancia con empresas y ampliar las mediciones. Esta demo muestra un escenario ficticio reproducible; la disponibilidad de SICOP, la precisión comercial y los comparables adjudicados requieren validaciones adicionales."
+  }
+]

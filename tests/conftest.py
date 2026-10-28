@@ -7,6 +7,9 @@ from nexolicitcr.security import PASSWORDS
 from nexolicitcr.storage import Store
 from nexolicitcr.web import create_app
 
+# Las copias locales con este sufijo pueden importar herramientas ya retiradas.
+collect_ignore_glob = ["* 2.py"]
+
 
 @pytest.fixture
 def settings():

@@ -57,6 +57,10 @@ coverage.xml
 /artifacts/
 /playwright-report/
 /test-results/
+# Videos: publicar únicamente los dos archivos finales de la entrega.
+/docs/entrega/**/*.mp4
+!/docs/entrega/demo/NexoLicitCR_demo.mp4
+!/docs/entrega/demo-sicop/NexoLicitCR_cliente_SICOP.mp4
 *.log
 *.pid
 *.part
@@ -74,3 +78,6 @@ node_modules/
 
 # Planificación privada local
 /.local-planning/
+
+# Copias locales duplicadas por sincronización; conservarlas fuera de Git.
+* 2.*
