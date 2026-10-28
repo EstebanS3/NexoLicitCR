@@ -275,9 +275,7 @@ Capturas del recorrido real de **Brújula TI**, con base y usuario exclusivos de
 
 [Inicio](docs/assets/demo/01-inicio.png) · [Perfil](docs/assets/demo/02-perfil.png) · [Catálogo](docs/assets/demo/03-catalogo.png) · [Detalle](docs/assets/demo/05-detalle.png) · [Seguimiento](docs/assets/demo/07-seguimiento.png) · [Actividad](docs/assets/demo/08-actividad.png).
 
-**[Video MP4 de 4:44 minutos](docs/entrega/demo/NexoLicitCR_demo.mp4)** · [Guion](docs/entrega/demo/GUION.md) · [Subtítulos](docs/entrega/demo/NexoLicitCR_demo.srt) · [Presentación editable](docs/entrega/presentacion/NexoLicitCR_presentacion_final.pptx) · [Presentación PDF](docs/entrega/presentacion/NexoLicitCR_presentacion_final.pdf).
-
-**[Demo de cliente con SICOP real · MP4 de 4:55 minutos](docs/entrega/demo-sicop/NexoLicitCR_cliente_SICOP.mp4)**: Mesa Norte Catering, empresa ficticia, consulta pública real, comentarios y seguimiento. Incluye esperas aceleradas y música original. [Recorrido y procedencia](docs/entrega/demo-sicop/README.md). Ambos videos incluyen subtítulos en español.
+[Presentación editable](docs/entrega/presentacion/NexoLicitCR_presentacion_final.pptx) · [Presentación PDF](docs/entrega/presentacion/NexoLicitCR_presentacion_final.pdf).
 
 La revisión móvil histórica se conserva en [catálogo móvil](docs/validacion/catalogo-movil.png), [acceso inválido](docs/validacion/acceso-invalido-movil.png) y [memoria del 18 de octubre](docs/validacion/README.md). No constituye una certificación de accesibilidad.
 
@@ -332,7 +330,7 @@ Ver [operación completa](docs/operations.md) para pausas, reinicios, backups y 
 | Etapa | Estado | Resultado y condición de cierre |
 |---|---|---|
 | Base funcional | Implementada | Acceso, perfil/catálogo, consulta SICOP, radar, documentos, decisiones y cola durable; evidencia enlazada en las historias. |
-| Entrega `v0.9.0` | Preparada | Instalación reproducible, dataset, capturas, video de 4:44 minutos, borrador de presentación, changelog y ficha provisional del portal. El tag identifica el commit revisado. |
+| Entrega `v0.9.0` | Preparada | Instalación reproducible, dataset, capturas, borrador de presentación, changelog y ficha provisional del portal. El tag identifica el commit revisado. |
 | Cierre `v1.0.0` | Próxima versión propuesta | Resolver pendientes de entrega y revisar criterios finales. La versión acordada para esta entrega es `v0.9.0`. |
 | Experiencia y relevancia | Propuesta | Evaluar comprensión y utilidad con empresas, medir falsos positivos/negativos y documentar obstáculos. |
 | Evidencia y operación | Propuesta | Ampliar corpus OCR, restauración de respaldos y medición extremo a extremo bajo carga representativa. |
