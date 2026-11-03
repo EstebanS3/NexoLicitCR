@@ -84,6 +84,8 @@ Detalles: [arquitectura y dependencias](docs/architecture.md) · [modelo y decis
 
 ## Instalación
 
+**Instalación guiada:** descargá y extraé el ZIP del repositorio. En Windows ejecutá `powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1`; en Ubuntu/Debian o macOS, `bash install.sh`. Después usá `start.cmd` (Windows) o `bash start.sh`. [Requisitos y guía breve](docs/instalacion-sencilla.md).
+
 ### Requisitos
 
 - Git y **Python 3.12 o 3.13**; el rango admitido es `>=3.12,<3.14`.
